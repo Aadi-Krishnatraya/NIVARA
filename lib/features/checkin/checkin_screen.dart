@@ -143,13 +143,99 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
     }
   }
 
+  String get _greeting {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  String get _todayLabel {
+    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final n = DateTime.now();
+    return '${wd[n.weekday - 1]}, ${n.day} ${mo[n.month - 1]}';
+  }
+
+  /// Live status pill on the hero banner — reflects the current evaluation
+  /// state so the page reads at a glance.
+  Widget _statusChip() {
+    final score = _evaluatedScore;
+    final Color tint;
+    final IconData icon;
+    final String label;
+    if (_evaluating) {
+      tint = NivaraColors.info;
+      icon = Icons.bolt;
+      label = 'Evaluating…';
+    } else if (score == null) {
+      tint = NivaraColors.warn;
+      icon = Icons.radio_button_unchecked;
+      label = 'Not evaluated';
+    } else {
+      tint = _bandColor;
+      icon = Icons.verified_outlined;
+      label = '${score.toStringAsFixed(0)} · ${classifyStress(score).label}';
+    }
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(NivaraRadius.pill),
+        border: Border.all(color: tint.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: tint),
+          SizedBox(width: 5),
+          Text(label,
+              style: TextStyle(
+                  color: tint, fontSize: 11, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final evaluated = _evaluatedScore != null;
     return Scaffold(
       backgroundColor: NivaraColors.bg,
       appBar: AppBar(
         title: Text('Daily Check-In'),
       ),
+      floatingActionButton: !_engineReady
+          ? null
+          : AnimatedSlide(
+              duration: Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              offset: Offset(0, _submitting ? 0.2 : 0),
+              child: FloatingActionButton.extended(
+                heroTag: 'checkin-action',
+                elevation: 3,
+                backgroundColor: evaluated ? NivaraColors.accent : NivaraColors.surfaceAlt,
+                foregroundColor: evaluated ? const Color(0xFF04211D) : NivaraColors.textHi,
+                onPressed: _submitting || _evaluating
+                    ? null
+                    : (evaluated ? _submit : _runEvaluation),
+                icon: _submitting
+                    ? SizedBox(
+                        width: 18, height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Color(0xFF04211D)))
+                    : Icon(evaluated ? Icons.save_outlined : Icons.bolt, size: 20),
+                label: Text(
+                  _submitting
+                      ? 'Logging…'
+                      : evaluated
+                          ? 'Log check-in'
+                          : 'Run evaluation',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                ),
+              ),
+            ),
       body: _engineError != null
           ? Center(
               child: Padding(
@@ -203,8 +289,65 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
               ),
             )
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
               children: [
+                // Hero banner: greeting + today's context + live status.
+                NivaraCard(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      NivaraColors.surface,
+                      NivaraColors.surfaceAlt,
+                    ],
+                  ),
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: NivaraColors.accentSoft,
+                              border: Border.all(
+                                  color: NivaraColors.accent.withValues(alpha: 0.45)),
+                            ),
+                            child: Icon(Icons.person_outline,
+                                size: 22, color: NivaraColors.accent),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '$_greeting, ${widget.session.name}',
+                                  style: TextStyle(
+                                      color: NivaraColors.textHi,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  '$_todayLabel · confidential check-in',
+                                  style: TextStyle(
+                                      color: NivaraColors.textLow, fontSize: 11.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                          _statusChip(),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
                 _SectionLabel(
                     icon: Icons.favorite_outline,
                     title: 'Subjective report',
@@ -214,6 +357,15 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                   label: 'Mood',
                   valueText: '${_mood.toStringAsFixed(1)} / 5',
                   value: _mood, min: 1, max: 5, divisions: 40,
+                  stageIcons: const [
+                    Icons.sentiment_very_dissatisfied,
+                    Icons.sentiment_dissatisfied,
+                    Icons.sentiment_neutral,
+                    Icons.sentiment_satisfied,
+                    Icons.sentiment_very_satisfied,
+                  ],
+                  lowHint: 'very low',
+                  highHint: 'excellent',
                   onChanged: (v) => setState(() { _mood = v; _evaluatedScore = null; }),
                 ),
                 _slider(
@@ -221,6 +373,13 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                   label: 'Sleep last night',
                   valueText: '${_sleep.toStringAsFixed(1)} hrs',
                   value: _sleep, min: 0, max: 12, divisions: 48,
+                  stageIcons: const [
+                    Icons.airline_seat_individual_suite,
+                    Icons.hotel_outlined,
+                    Icons.hotel_class_outlined,
+                  ],
+                  lowHint: 'no sleep',
+                  highHint: 'fully rested',
                   onChanged: (v) => setState(() { _sleep = v; _evaluatedScore = null; }),
                 ),
                 _slider(
@@ -228,6 +387,15 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                   label: 'Physical readiness',
                   valueText: '${_readiness.toStringAsFixed(1)} / 5',
                   value: _readiness, min: 1, max: 5, divisions: 40,
+                  stageIcons: const [
+                    Icons.airline_seat_flat,
+                    Icons.airline_seat_recline_normal,
+                    Icons.directions_walk,
+                    Icons.directions_run,
+                    Icons.bolt,
+                  ],
+                  lowHint: 'exhausted',
+                  highHint: 'peak condition',
                   onChanged: (v) => setState(() { _readiness = v; _evaluatedScore = null; }),
                 ),
                 const SizedBox(height: 14),
@@ -240,6 +408,9 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                   label: 'Consecutive night patrols',
                   valueText: '$_nightStreak days',
                   value: _nightStreak.toDouble(), min: 0, max: 14, divisions: 14,
+                  tint: NivaraColors.info,
+                  lowHint: 'none',
+                  highHint: '14 in a row',
                   onChanged: (v) => setState(() { _nightStreak = v.round(); _evaluatedScore = null; }),
                 ),
                 _slider(
@@ -247,11 +418,26 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                   label: 'Deployment duration',
                   valueText: '$_deploymentDays days',
                   value: _deploymentDays.toDouble(), min: 0, max: 365, divisions: 73,
+                  tint: NivaraColors.warn,
+                  lowHint: 'just arrived',
+                  highHint: '1 year+',
                   onChanged: (v) => setState(() { _deploymentDays = v.round(); _evaluatedScore = null; }),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  activeThumbColor: NivaraColors.accent,
+                  activeThumbColor: NivaraColors.danger,
+                  secondary: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: NivaraColors.danger.withValues(alpha: 0.13),
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(
+                          color: NivaraColors.danger.withValues(alpha: 0.30)),
+                    ),
+                    child: Icon(Icons.event_busy,
+                        size: 19, color: NivaraColors.danger),
+                  ),
                   title: Text('Leave cancelled in last 30 days',
                       style: TextStyle(color: NivaraColors.textMid, fontSize: 13.5)),
                   value: _cancelledLeave,
@@ -470,6 +656,25 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
     );
   }
 
+  /// Small anchor caption under a slider (e.g. “1 · 5” with a hint word).
+  Widget _anchor(double min, double max, String? low, String? high) {
+    return Padding(
+      padding: EdgeInsets.only(top: 2, left: 46, right: 98),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(low ?? min.toStringAsFixed(0),
+              style: TextStyle(color: NivaraColors.textLow, fontSize: 10)),
+          if (high != null)
+            Text(high,
+                style: TextStyle(color: NivaraColors.textLow, fontSize: 10)),
+          if (high == null) Text(max.toStringAsFixed(0),
+              style: TextStyle(color: NivaraColors.textLow, fontSize: 10)),
+        ],
+      ),
+    );
+  }
+
   Widget _slider({
     required IconData icon,
     required String label,
@@ -479,39 +684,80 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
     required double max,
     required int divisions,
     required ValueChanged<double> onChanged,
+    Color tint = NivaraColors.accent,
+    List<IconData>? stageIcons,
+    double Function(double)? stageT,
+    String? lowHint,
+    String? highHint,
   }) {
+    final t = stageT?.call(value) ?? ((value - min) / (max - min)).clamp(0.0, 1.0);
     return Padding(
       padding: EdgeInsets.only(bottom: 2),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: NivaraColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 18, color: NivaraColors.accent),
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: tint.withValues(alpha: 0.30)),
+                ),
+                child: Icon(icon, size: 19, color: tint),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(label,
+                    style: TextStyle(
+                        color: NivaraColors.textMid, fontSize: 12.5)),
+              ),
+              Text(valueText,
+                  style: TextStyle(
+                      color: NivaraColors.textHi,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700)),
+            ],
           ),
-          Expanded(
-            child: Slider(
-              value: value.clamp(min, max),
-              min: min,
-              max: max,
-              divisions: divisions,
-              label: valueText,
-              onChanged: onChanged,
-            ),
+          Row(
+            children: [
+              if (stageIcons != null)
+                GestureDetector(
+                  onTap: () => onChanged(min + (max - min) * t),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    child: Icon(
+                      stageIcons[(t * (stageIcons.length - 1)).round()],
+                      size: 22,
+                      color: Color.lerp(NivaraColors.textLow, tint, t.clamp(0.0, 1.0)),
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: tint,
+                    thumbColor: tint,
+                    overlayColor: tint.withValues(alpha: 0.16),
+                  ),
+                  child: Slider(
+                    value: value.clamp(min, max),
+                    min: min,
+                    max: max,
+                    divisions: divisions,
+                    label: valueText,
+                    onChanged: onChanged,
+                  ),
+                ),
+              ),
+            ],
           ),
-          SizedBox(
-            width: 86,
-            child: Text(valueText,
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                    color: NivaraColors.textHi,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700)),
-          ),
+          if (lowHint != null || highHint != null)
+            _anchor(min, max, lowHint, highHint),
         ],
       ),
     );

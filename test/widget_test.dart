@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nivara_app/core/auth_service.dart';
 import 'package:nivara_app/core/ml_engine.dart';
@@ -169,11 +170,20 @@ void main() {
     });
   });
 
+  test('brand assets are bundled', () async {
+    for (final asset in [kNivaraMarkAsset, kNivaraLogoAsset]) {
+      final data = await rootBundle.load(asset);
+      expect(data.lengthInBytes, greaterThan(0), reason: asset);
+    }
+  });
+
   testWidgets('NivaraApp renders boot shell', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     await tester.pumpWidget(const NivaraApp());
     await tester.pump();
-    // Boot splash shows the brand while vault + model warm up.
-    expect(find.text('NIVARA'), findsOneWidget);
+    // Boot splash shows the official emblem + subtitle while vault + model
+    // warm up (the wordmark itself is now the brand image asset).
+    expect(find.byType(NivaraMark), findsOneWidget);
+    expect(find.text('OPERATIONAL READINESS · ON-DEVICE'), findsOneWidget);
   });
 }

@@ -87,40 +87,45 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Theme-aware brand background: deep olive-ops in dark (echoing the
+    // emblem's own backdrop), warm paper in light.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: NivaraColors.bg,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: 420),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(height: 12),
-                  Center(child: NivaraMark(size: 84)),
-                  SizedBox(height: 22),
-                  Text(
-                    'NIVARA',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: NivaraColors.textHi,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 6),
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    'WELLNESS INTELLIGENCE · NEVER LEAVES THE DEVICE',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: NivaraColors.textLow,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.6),
-                  ),
-                  SizedBox(height: 36),
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: isDark
+                ? [const Color(0xFF18231C), NivaraColors.bg]
+                : [const Color(0xFFECE6D4), NivaraColors.bg],
+            stops: const [0.0, 0.55],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 420),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(height: 12),
+                    Center(child: NivaraMark(size: 108)),
+                    SizedBox(height: 22),
+                    Center(child: NivaraWordmark(height: 30)),
+                    SizedBox(height: 8),
+                    Text(
+                      'WELLNESS INTELLIGENCE · NEVER LEAVES THE DEVICE',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: NivaraColors.textLow,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.6),
+                    ),
+                    SizedBox(height: 36),
                   TextField(
                     controller: _name,
                     textCapitalization: TextCapitalization.words,
@@ -204,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Flexible(
                         child: Text(
                           'Credentials verified against salted SHA-256 hashes. '
-                          'Raw passcodes are never stored (PRD §5.1).',
+                          'Raw passcodes are never stored.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                               color: NivaraColors.textLow,
@@ -220,6 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

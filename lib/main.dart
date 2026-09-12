@@ -152,15 +152,10 @@ class _BootSplash extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            NivaraMark(size: 92),
-            SizedBox(height: 24),
-            Text('NIVARA',
-                style: TextStyle(
-                    color: NivaraColors.textHi,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 6)),
-            SizedBox(height: 6),
+            NivaraMark(size: 96),
+            SizedBox(height: 22),
+            NivaraWordmark(height: 28),
+            SizedBox(height: 8),
             Text('OPERATIONAL READINESS · ON-DEVICE',
                 style: TextStyle(
                     color: NivaraColors.textLow,

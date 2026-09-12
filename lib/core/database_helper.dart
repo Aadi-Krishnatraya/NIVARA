@@ -357,6 +357,46 @@ class DatabaseHelper {
     ''', [unitId, '-${days - 1} days']);
   }
 
+  /// Aggregate-only count of check-ins inside the last [days] days for the
+  /// unit. No identity columns are selected.
+  Future<int> getUnitLogCount(String unitId, {int days = 7}) async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT COUNT(*) AS n FROM check_ins
+      WHERE unit_id = ? AND date(timestamp) >= date('now', ?)
+    ''', [unitId, '-${days - 1} days']);
+    return Sqflite.firstIntValue(rows) ?? 0;
+  }
+
+  /// How many distinct contributors have checked in today (unit aggregate).
+  Future<int> getUnitTodayContributors(String unitId) async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT COUNT(DISTINCT user_id) AS n FROM check_ins
+      WHERE unit_id = ? AND date(timestamp) = date('now')
+    ''', [unitId]);
+    return Sqflite.firstIntValue(rows) ?? 0;
+  }
+
+  /// Log counts per severity band (unit-wide). Callers add Laplace noise
+  /// before displaying shares, keeping the display differentially private.
+  Future<Map<String, int>> getUnitBandCounts(String unitId) async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT
+        SUM(CASE WHEN stress_score >= 67 THEN 1 ELSE 0 END) AS high,
+        SUM(CASE WHEN stress_score >= 34 AND stress_score < 67 THEN 1 ELSE 0 END) AS moderate,
+        SUM(CASE WHEN stress_score < 34 THEN 1 ELSE 0 END) AS low
+      FROM check_ins WHERE unit_id = ?
+    ''', [unitId]);
+    final r = rows.first;
+    return {
+      'high': (r['high'] as int?) ?? 0,
+      'moderate': (r['moderate'] as int?) ?? 0,
+      'low': (r['low'] as int?) ?? 0,
+    };
+  }
+
   /// Real XAI (PRD §3.2): pools the per-check-in Shapley attributions of the
   /// whole unit into mean model-explained drivers. Identity never leaves the
   /// aggregation — only feature-level means are returned.
@@ -412,6 +452,11 @@ class DatabaseHelper {
         .clamp(0.0, 100.0)
         .toDouble();
   }
+
+  /// Exposes a single Laplace draw for dashboard share metrics, so
+  /// percentage-style displays carry the same DP protection as averages.
+  double laplaceNoisePublic({double scale = 2.0}) =>
+      laplaceNoise(scale: scale, rng: _random);
 
   // -------------------------------------------------------------------------
   // Immutable audit trail (PRD §3.3) — append-only, no update/delete path

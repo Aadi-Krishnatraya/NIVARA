@@ -35,6 +35,31 @@ class _CommanderScreenState extends State<CommanderScreen> {
   List<Map<String, Object?>> _trend = [];
   Map<String, Object?>? _drivers;
   Map<String, double> _meanAttributions = const {};
+  int _todayContributors = 0;
+  int _weekLogs = 0;
+  int _highCount = 0;
+  int _moderateCount = 0;
+
+  /// DP-pooled share of logs in the high-stress band. Laplace noise is
+  /// applied so the exact count is never exposed.
+  double get _highSharePct {
+    if (_totalLogs == 0) return 0;
+    final raw = _highCount / _totalLogs * 100;
+    final noisy = raw + DatabaseHelper.instance.laplaceNoisePublic(scale: 2.0);
+    return noisy.clamp(0.0, 100.0);
+  }
+
+  /// How the week went versus the previous one, in aggregate terms.
+  String get _trendDelta {
+    if (_trend.length < 2) return '';
+    final first = ((_trend.first['avg_stress'] as num?) ?? 0).toDouble();
+    final last = ((_trend.last['avg_stress'] as num?) ?? 0).toDouble();
+    final delta = last - first;
+    if (delta.abs() < 2) return 'stable this week';
+    return delta < 0
+        ? 'improving — down ${delta.abs().toStringAsFixed(1)} pts this week'
+        : 'rising — up ${delta.toStringAsFixed(1)} pts this week';
+  }
 
   @override
   void initState() {
@@ -71,6 +96,9 @@ class _CommanderScreenState extends State<CommanderScreen> {
     final trend = await db.getUnitTrend(unitId);
     final drivers = await db.getUnitDrivers(unitId);
     final meanAttributions = await db.getUnitMeanAttributions(unitId);
+    final todayContributors = await db.getUnitTodayContributors(unitId);
+    final weekLogs = await db.getUnitLogCount(unitId);
+    final bandCounts = await db.getUnitBandCounts(unitId);
 
     await db.logAudit(
       actorId: widget.session.userId,
@@ -90,6 +118,10 @@ class _CommanderScreenState extends State<CommanderScreen> {
       _trend = trend;
       _drivers = drivers;
       _meanAttributions = meanAttributions;
+      _todayContributors = todayContributors;
+      _weekLogs = weekLogs;
+      _highCount = bandCounts['high'] ?? 0;
+      _moderateCount = bandCounts['moderate'] ?? 0;
       _isLoading = false;
     });
   }
@@ -158,6 +190,243 @@ class _CommanderScreenState extends State<CommanderScreen> {
       : _avgStress > 45
           ? NivaraColors.warn
           : NivaraColors.good;
+
+  /// Actionable banner shown when the data warrants commander attention.
+  Widget? get _alertCallout {
+    if (_totalLogs == 0) return null;
+    final highShare = _totalLogs > 0 ? _highCount / _totalLogs : 0.0;
+    if (_avgStress >= 60 || highShare >= 0.25) {
+      return _banner(
+        tint: NivaraColors.danger,
+        icon: Icons.priority_high_rounded,
+        text:
+            'Elevated unit stress — review the action playbook below.',
+      );
+    }
+    if (_avgStress >= 45) {
+      return _banner(
+        tint: NivaraColors.warn,
+        icon: Icons.warning_amber_rounded,
+        text: 'Moderate stress levels — worth monitoring this week.',
+      );
+    }
+    return null;
+  }
+
+  Widget _banner({required Color tint, required IconData icon, required String text}) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(NivaraRadius.card),
+        border: Border.all(color: tint.withValues(alpha: 0.40)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: tint),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(
+                    color: tint, fontSize: 12.5, fontWeight: FontWeight.w700,
+                    height: 1.35)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Aggregate activity grid: one cell per day of the last 7 days.
+  /// Intensity = share of the unit that checked in that day (never counts
+  /// individuals — identity-safe by construction).
+  Widget _activityCard() {
+    final byDay = {for (final r in _trend) r['day'].toString(): r};
+    final now = DateTime.now();
+    const wd = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    return NivaraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            icon: Icons.calendar_view_week,
+            title: 'Participation this week',
+            tint: NivaraColors.accent,
+            pill: '$_weekLogs check-ins · 7 days',
+          ),
+          SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (var i = 6; i >= 0; i--)
+                Builder(builder: (context) {
+                  final d = now.subtract(Duration(days: i));
+                  const mo = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+                  final key = '${d.year}-${mo[d.month - 1]}-${d.day.toString().padLeft(2, '0')}';
+                  final row = byDay[key];
+                  final stress = ((row?['avg_stress'] as num?) ?? 0).toDouble();
+                  final active = row != null;
+                  final Color cell;
+                  if (!active) {
+                    cell = NivaraColors.surfaceAlt;
+                  } else if (stress >= 67) {
+                    cell = NivaraColors.danger;
+                  } else if (stress >= 34) {
+                    cell = NivaraColors.warn;
+                  } else {
+                    cell = NivaraColors.good;
+                  }
+                  return Column(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: cell.withValues(alpha: active ? 0.30 : 1.0),
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(
+                              color: active
+                                  ? cell.withValues(alpha: 0.65)
+                                  : NivaraColors.outline),
+                        ),
+                        child: active
+                            ? Icon(Icons.check, size: 15, color: cell)
+                            : Icon(Icons.remove, size: 15, color: NivaraColors.textLow),
+                      ),
+                      SizedBox(height: 6),
+                      Text(wd[(d.weekday - 1) % 7],
+                          style: TextStyle(
+                              color: NivaraColors.textLow, fontSize: 10)),
+                    ],
+                  );
+                }),
+            ],
+          ),
+          SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(Icons.info_outline, size: 11, color: NivaraColors.textLow),
+              SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'Cell color = that day\'s aggregate stress band. No individual data exists behind this view.',
+                  style: TextStyle(color: NivaraColors.textLow, fontSize: 10, height: 1.3),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Circular DP-average gauge with band legend tiles beneath it.
+  Widget _overviewCard() {
+    final ring = NivaraColors.accent.withValues(alpha: 0.15);
+    return NivaraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            icon: Icons.monitor_heart_outlined,
+            title: 'Unit overview',
+            pill: 'Laplace noise · $_contributors contributors',
+          ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              SizedBox(
+                width: 108,
+                height: 108,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 108,
+                      height: 108,
+                      child: CircularProgressIndicator(
+                        value: (_avgStress / 100).clamp(0.0, 1.0),
+                        strokeWidth: 9,
+                        strokeCap: StrokeCap.round,
+                        color: _stressColor,
+                        backgroundColor: ring,
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_avgStress.toStringAsFixed(0),
+                            style: TextStyle(
+                                color: _stressColor,
+                                fontSize: 30,
+                                fontWeight: FontWeight.w800,
+                                height: 1)),
+                        Text('/ 100 DP avg',
+                            style: TextStyle(
+                                color: NivaraColors.textLow, fontSize: 9)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _bandTile(NivaraColors.good, 'Low band',
+                        '< 34', pct: _totalLogs == 0 ? null : 100 - _highSharePct - _modSharePct),
+                    SizedBox(height: 8),
+                    _bandTile(NivaraColors.warn, 'Moderate band',
+                        '34–66', pct: _totalLogs == 0 ? null : _modSharePct),
+                    SizedBox(height: 8),
+                    _bandTile(NivaraColors.danger, 'High band',
+                        '≥ 67', pct: _totalLogs == 0 ? null : _highSharePct),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (_trendDelta.isNotEmpty) ...[
+            SizedBox(height: 14),
+            Row(
+              children: [
+                Icon(Icons.trending_up,
+                    size: 13, color: NivaraColors.textLow),
+                SizedBox(width: 6),
+                Text(_trendDelta,
+                    style: TextStyle(
+                        color: NivaraColors.textMid, fontSize: 11.5)),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  double get _modSharePct {
+    if (_totalLogs == 0) return 0;
+    final raw = _moderateCount / _totalLogs * 100;
+    final noisy = raw + DatabaseHelper.instance.laplaceNoisePublic(scale: 2.0);
+    return noisy.clamp(0.0, 100.0);
+  }
+
+  Widget _bandTile(Color tint, String label, String range, {double? pct}) {
+    return Row(
+      children: [
+        Container(width: 9, height: 9,
+          decoration: BoxDecoration(color: tint, shape: BoxShape.circle)),
+        SizedBox(width: 8),
+        Expanded(
+          child: Text('$label ($range)',
+              style: TextStyle(color: NivaraColors.textMid, fontSize: 11.5)),
+        ),
+        Text(pct == null ? '—' : '${pct.toStringAsFixed(0)}%',
+            style: TextStyle(
+                color: tint, fontSize: 12, fontWeight: FontWeight.w800)),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -238,36 +507,45 @@ class _CommanderScreenState extends State<CommanderScreen> {
                         ],
                       ),
                       const SizedBox(height: 18),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: StatTile(
-                              label: 'Avg Stress (DP)',
-                              value: _avgStress.toStringAsFixed(1),
-                              color: _stressColor,
-                              icon: Icons.monitor_heart_outlined,
+                      if (_alertCallout != null) ...[
+                        _alertCallout!,
+                        const SizedBox(height: 14),
+                      ],
+                      if (_totalLogs == 0)
+                        _infoCard(
+                          icon: Icons.hourglass_empty,
+                          color: NivaraColors.accent,
+                          title: 'No check-ins yet',
+                          body:
+                              'This unit has no logged check-ins. Aggregates appear here as soon as personnel start their daily check-ins — refresh to update.',
+                        )
+                      else ...[
+                        _overviewCard(),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: StatTile(
+                                label: 'Logs · 7 days',
+                                value: '$_weekLogs',
+                                color: NivaraColors.info,
+                                icon: Icons.fact_check_outlined,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: StatTile(
-                              label: 'Unit Logs',
-                              value: '$_totalLogs',
-                              color: NivaraColors.info,
-                              icon: Icons.fact_check_outlined,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: StatTile(
+                                label: 'Checked in today',
+                                value: '$_todayContributors / $_contributors',
+                                color: _todayContributors >= _contributors && _contributors > 0
+                                    ? NivaraColors.good
+                                    : NivaraColors.accent,
+                                icon: Icons.task_alt_outlined,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: StatTile(
-                              label: 'Contributors',
-                              value: '$_contributors',
-                              color: NivaraColors.accent,
-                              icon: Icons.groups_2_outlined,
-                            ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       if (_trend.isNotEmpty) ...[
                         SectionHeader(
@@ -368,6 +646,8 @@ class _CommanderScreenState extends State<CommanderScreen> {
                         ),
                         const SizedBox(height: 20),
                       ],
+                      _activityCard(),
+                      const SizedBox(height: 12),
                       _shapleyCard(),
                       const SizedBox(height: 12),
                       _infoCard(

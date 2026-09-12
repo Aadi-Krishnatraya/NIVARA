@@ -85,7 +85,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           child: ListView(
             padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
             children: [
-              Center(child: NivaraMark(size: 64)),
+              Center(child: NivaraMark(size: 72)),
               SizedBox(height: 10),
               Text(
                 'Create the first identity on this device.\n'

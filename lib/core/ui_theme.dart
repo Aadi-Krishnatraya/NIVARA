@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+/// Asset paths for the official brand artwork (white glyph, tintable).
+const String kNivaraMarkAsset = 'assets/branding/nivara_mark.png';
+const String kNivaraLogoAsset = 'assets/branding/nivara_logo.png';
+
 /// NIVARA design system.
 ///
 /// One source of truth for the palette, shape language, and the small
@@ -23,6 +27,11 @@ abstract final class NivaraColors {
   /// Accent + accent wash are shared constants across both palettes.
   static const accent = Color(0xFF2DD4BF); // primary teal
   static const accentSoft = Color(0x332DD4BF); // 20% teal wash
+
+  /// Brand cream from the official NIVARA emblem. Dark theme uses the
+  /// sampled logo cream; light theme darkens to a bronze in the same hue
+  /// family so the mark stays readable on white surfaces.
+  static Color get brand => _current.brand;
 
   /// Signal colors adapt to brightness: the dark-theme tints (red-400,
   /// amber-400, emerald-400, blue-400) are unreadable on white surfaces,
@@ -58,6 +67,7 @@ class NivaraPalette {
   final Color warn;
   final Color good;
   final Color info;
+  final Color brand;
 
   const NivaraPalette({
     required this.bg,
@@ -71,6 +81,7 @@ class NivaraPalette {
     required this.warn,
     required this.good,
     required this.info,
+    required this.brand,
   });
 
   /// The original tactical-dark palette (unchanged).
@@ -86,6 +97,7 @@ class NivaraPalette {
     warn: Color(0xFFFBBF24),
     good: Color(0xFF34D399),
     info: Color(0xFF60A5FA),
+    brand: Color(0xFFD1C6A5), // emblem cream, sampled from the official mark
   );
 
   /// Day variant: soft paper background, white cards, graphite text.
@@ -103,6 +115,7 @@ class NivaraPalette {
     warn: Color(0xFFB45309), // amber-700
     good: Color(0xFF047857), // emerald-700
     info: Color(0xFF1D4ED8), // blue-700
+    brand: Color(0xFF77683C), // bronze — same hue family as the emblem cream
   );
 }
 
@@ -398,24 +411,55 @@ class StatTile extends StatelessWidget {
   }
 }
 
-/// Brand glyph: shield inside a teal glow ring. Used on splash + auth.
+/// The official NIVARA emblem (soldier silhouette in the letter N), tinted
+/// per theme. An optional teal glow ring keeps the auth/boot presentation
+/// consistent with the original design language.
 class NivaraMark extends StatelessWidget {
   final double size;
-  const NivaraMark({super.key, this.size = 88});
+  final bool glow;
+
+  const NivaraMark({super.key, this.size = 88, this.glow = true});
 
   @override
   Widget build(BuildContext context) {
+    final mark = Image.asset(
+      kNivaraMarkAsset,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      color: NivaraColors.brand,
+    );
+    if (!glow) return mark;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: RadialGradient(
-          colors: [NivaraColors.accent.withValues(alpha: 0.22), Colors.transparent],
+          colors: [NivaraColors.accent.withValues(alpha: 0.20), Colors.transparent],
         ),
-        border: Border.all(color: NivaraColors.accent.withValues(alpha: 0.45), width: 1.5),
+        border: Border.all(color: NivaraColors.accent.withValues(alpha: 0.40), width: 1.4),
       ),
-      child: Icon(Icons.shield_outlined, size: size * 0.46, color: NivaraColors.accent),
+      padding: EdgeInsets.all(size * 0.17),
+      child: mark,
+    );
+  }
+}
+
+/// The official NIVARA wordmark ("NIVARA" + star), tinted per theme.
+class NivaraWordmark extends StatelessWidget {
+  final double height;
+  final Color? color;
+
+  const NivaraWordmark({super.key, this.height = 26, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      kNivaraLogoAsset,
+      height: height,
+      fit: BoxFit.contain,
+      color: color ?? NivaraColors.textHi,
     );
   }
 }
