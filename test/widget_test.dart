@@ -5,6 +5,7 @@ import 'package:nivara_app/core/auth_service.dart';
 import 'package:nivara_app/core/ml_engine.dart';
 import 'package:nivara_app/core/shapley.dart';
 import 'package:nivara_app/core/ui_theme.dart';
+import 'package:nivara_app/features/commander/unit_condition.dart';
 import 'package:nivara_app/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -167,6 +168,93 @@ void main() {
       ThemeController.instance.syncPalette();
       expect(NivaraColors.current, same(NivaraPalette.light));
       NivaraColors.syncWith(Brightness.dark); // restore for other tests
+    });
+  });
+
+  group('unit condition tiers (Units Under Command)', () {
+    test('readiness bands map to the labeled tiers (spec example readings)', () {
+      expect(conditionFromReadiness(0), UnitCondition.critical);
+      expect(conditionFromReadiness(20), UnitCondition.critical);
+      expect(conditionFromReadiness(35), UnitCondition.poor);
+      expect(conditionFromReadiness(48), UnitCondition.poor);
+      expect(conditionFromReadiness(60), UnitCondition.needsAttention);
+      expect(conditionFromReadiness(72), UnitCondition.fair);
+      expect(conditionFromReadiness(88), UnitCondition.good);
+      expect(conditionFromReadiness(98), UnitCondition.excellent);
+      expect(conditionFromReadiness(100), UnitCondition.excellent);
+    });
+
+    test('stress 0-100 maps through readiness to the spec tiers', () {
+      // readiness = 100 − stress: 80 stress → 20% → Critical; 2 → 98% → Excellent.
+      expect(conditionFromStress(80), UnitCondition.critical);
+      expect(conditionFromStress(52), UnitCondition.poor);
+      expect(conditionFromStress(28), UnitCondition.fair);
+      expect(conditionFromStress(2), UnitCondition.excellent);
+    });
+
+    UnitSummary unit(String id, double readiness,
+            {int logs = 10, bool suppressed = false, DateTime? last}) =>
+        UnitSummary(
+          unitId: id,
+          contributors: suppressed ? 2 : 9,
+          totalLogs: logs,
+          stressAvg: 100 - readiness,
+          privacySuppressed: suppressed,
+          lastCheckIn: last,
+          todayContributors: 0,
+        );
+
+    test('board sorts worst condition → best condition', () {
+      final units = [
+        unit('EXCELLENT_UNIT', 98),
+        unit('CRITICAL_UNIT', 20),
+        unit('GOOD_UNIT', 72),
+        unit('POOR_UNIT', 48),
+        unit('CRITICAL_WORSE', 5),
+        unit('FAIR_UNIT', 60),
+      ];
+      final sorted = applyUnitFilters(units);
+      expect(
+        sorted.map((u) => u.unitId).toList(),
+        [
+          'CRITICAL_WORSE', // 5% readiness
+          'CRITICAL_UNIT', // 20%
+          'POOR_UNIT', // 48%
+          'FAIR_UNIT', // 60%
+          'GOOD_UNIT', // 72%
+          'EXCELLENT_UNIT', // 98%
+        ],
+      );
+    });
+
+    test('no-data and privacy-held units sink to the bottom', () {
+      final units = [
+        unit('NODATA', 0, logs: 0),
+        unit('HELD', 90, suppressed: true),
+        unit('VISIBLE_BAD', 10),
+      ];
+      final sorted = applyUnitFilters(units);
+      expect(sorted.first.unitId, 'VISIBLE_BAD');
+      expect(sorted.last.unitId, 'HELD');
+      expect(sorted[1].unitId, 'NODATA');
+    });
+
+    test('search and condition filters narrow the board', () {
+      final units = [
+        unit('ALPHA', 10),
+        unit('ALPHA_TWO', 90),
+        unit('BRAVO', 50),
+      ];
+      expect(applyUnitFilters(units, query: 'alpha').length, 2);
+      expect(
+        applyUnitFilters(units,
+            conditionFilter: {UnitCondition.critical}).single.unitId,
+        'ALPHA',
+      );
+      // Name order is an explicit choice; worst-first stays the default.
+      expect(applyUnitFilters(units, order: UnitSortOrder.nameAsc).first.unitId,
+          'ALPHA');
+      expect(applyUnitFilters(units).first.unitId, 'ALPHA');
     });
   });
 

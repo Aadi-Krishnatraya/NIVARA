@@ -41,6 +41,10 @@ abstract final class NivaraColors {
   static Color get good => _current.good;
   static Color get info => _current.info;
 
+  /// Orange sits between danger and warn for graduated condition tiers
+  /// (Critical / Poor / Needs Attention / Fair / Good / Excellent).
+  static Color get orange => _current.orange;
+
   static NivaraPalette _current = NivaraPalette.dark;
 
   static NivaraPalette get current => _current;
@@ -68,6 +72,7 @@ class NivaraPalette {
   final Color good;
   final Color info;
   final Color brand;
+  final Color orange;
 
   const NivaraPalette({
     required this.bg,
@@ -82,6 +87,7 @@ class NivaraPalette {
     required this.good,
     required this.info,
     required this.brand,
+    required this.orange,
   });
 
   /// The original tactical-dark palette (unchanged).
@@ -98,6 +104,7 @@ class NivaraPalette {
     good: Color(0xFF34D399),
     info: Color(0xFF60A5FA),
     brand: Color(0xFFD1C6A5), // emblem cream, sampled from the official mark
+    orange: Color(0xFFFB923C), // orange-400, readable on dark surfaces
   );
 
   /// Day variant: soft paper background, white cards, graphite text.
@@ -116,6 +123,7 @@ class NivaraPalette {
     good: Color(0xFF047857), // emerald-700
     info: Color(0xFF1D4ED8), // blue-700
     brand: Color(0xFF77683C), // bronze — same hue family as the emblem cream
+    orange: Color(0xFFC2410C), // orange-700, readable on white surfaces
   );
 }
 

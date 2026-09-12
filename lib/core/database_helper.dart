@@ -10,6 +10,7 @@ import 'auth_service.dart';
 import 'ml_engine.dart';
 import 'user_session.dart';
 
+
 /// AES-256 encrypted local vault (SQLCipher). The DB passphrase is a
 /// 256-bit CSPRNG value generated on first launch and stored in device
 /// preferences — nothing about this device's database is guessable or
@@ -394,6 +395,85 @@ class DatabaseHelper {
       'high': (r['high'] as int?) ?? 0,
       'moderate': (r['moderate'] as int?) ?? 0,
       'low': (r['low'] as int?) ?? 0,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Units Under Command — all-units overview (aggregates only, identity-safe)
+  // -------------------------------------------------------------------------
+
+  /// One aggregate row per unit known on this device. Only unit-level
+  /// counters are read — never names or user ids. Per PRD §5.2 the caller
+  /// must suppress rows where contributors < squadPrivacyThreshold.
+  Future<List<Map<String, Object?>>> getAllUnitsOverview() async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT unit_id AS unit,
+             COUNT(DISTINCT user_id) AS contributors,
+             COUNT(*) AS total_logs,
+             AVG(stress_score) AS avg_stress,
+             MAX(timestamp) AS last_ts
+      FROM check_ins
+      GROUP BY unit_id
+      ORDER BY unit_id ASC
+    ''');
+  }
+
+  /// Distinct contributors per unit who checked in today (identity-safe).
+  Future<Map<String, int>> getTodayContributorsByUnit() async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT unit_id AS unit, COUNT(DISTINCT user_id) AS n
+      FROM check_ins
+      WHERE date(timestamp) = date('now')
+      GROUP BY unit_id
+    ''');
+    return {
+      for (final r in rows) (r['unit'] as String): (r['n'] as int?) ?? 0,
+    };
+  }
+
+  /// Most recent check-in timestamp for a unit (null when none).
+  Future<DateTime?> getUnitLastCheckIn(String unitId) async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      'SELECT MAX(timestamp) AS ts FROM check_ins WHERE unit_id = ?',
+      [unitId],
+    );
+    final ts = rows.first['ts'] as String?;
+    return ts == null ? null : DateTime.tryParse(ts);
+  }
+
+  /// Every unit known on this device (registered personnel may exist before
+  /// the unit's first check-in). Reads the unit_id column only — identity-safe.
+  Future<Set<String>> getAllKnownUnitIds() async {
+    final db = await database;
+    final rows = await db.rawQuery('SELECT DISTINCT unit_id FROM users');
+    return {for (final r in rows) (r['unit_id'] as String).toUpperCase()};
+  }
+
+  /// Load a single unit's full aggregate bundle for the details view.
+  /// Returns null when the unit is below the privacy threshold — the
+  /// caller then renders the blocked state instead of any aggregate.
+  Future<Map<String, Object?>?> getUnitDetailBundle(String unitId) async {
+    final contributors = await getSquadSize(unitId);
+    if (contributors < squadPrivacyThreshold) return null;
+    final metrics = await getUnitMetrics(unitId);
+    final trend = await getUnitTrend(unitId);
+    final drivers = await getUnitDrivers(unitId);
+    final attributions = await getUnitMeanAttributions(unitId);
+    final bandCounts = await getUnitBandCounts(unitId);
+    final weekLogs = await getUnitLogCount(unitId);
+    final todayContributors = await getUnitTodayContributors(unitId);
+    return {
+      'contributors': contributors,
+      'metrics': metrics,
+      'trend': trend,
+      'drivers': drivers,
+      'attributions': attributions,
+      'bandCounts': bandCounts,
+      'weekLogs': weekLogs,
+      'todayContributors': todayContributors,
     };
   }
 
