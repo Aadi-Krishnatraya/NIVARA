@@ -32,7 +32,7 @@ class AuditViewerScreen extends StatelessWidget {
           }
           final entries = snap.data!;
           if (entries.isEmpty) {
-            return const Center(
+            return Center(
               child: Text('No entries yet.',
                   style: TextStyle(color: NivaraColors.textLow)),
             );
@@ -52,7 +52,7 @@ class AuditViewerScreen extends StatelessWidget {
                       '${ts.second.toString().padLeft(2, '0')}';
               final color = _actionColor(action);
               return Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: NivaraColors.surface,
                   borderRadius: BorderRadius.circular(12),
@@ -64,7 +64,7 @@ class AuditViewerScreen extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(
+                          padding: EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: 0.14),
@@ -77,21 +77,21 @@ class AuditViewerScreen extends StatelessWidget {
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.4)),
                         ),
-                        const Spacer(),
+                        Spacer(),
                         Text(tsText,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 color: NivaraColors.textLow, fontSize: 11)),
                       ],
                     ),
-                    const SizedBox(height: 7),
+                    SizedBox(height: 7),
                     Text((e['detail'] ?? '') as String,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: NivaraColors.textHi,
                             fontSize: 12.5,
                             height: 1.4)),
-                    const SizedBox(height: 3),
+                    SizedBox(height: 3),
                     Text('actor: ${e['actor_id']}',
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: NivaraColors.textLow, fontSize: 10.5)),
                   ],
                 ),

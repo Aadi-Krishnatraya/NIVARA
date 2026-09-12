@@ -20,7 +20,7 @@ class ConfidentialSupportScreen extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: NivaraColors.surface,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => StatefulBuilder(
@@ -32,24 +32,24 @@ class ConfidentialSupportScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(id == null ? 'Add contact' : 'Edit contact',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: NivaraColors.textHi,
                       fontSize: 17,
                       fontWeight: FontWeight.w800)),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               TextField(
                 controller: nameCtrl,
-                style: const TextStyle(color: NivaraColors.textHi),
-                decoration: const InputDecoration(
+                style: TextStyle(color: NivaraColors.textHi),
+                decoration: InputDecoration(
                   labelText: 'Contact name',
                   prefixIcon: Icon(Icons.person_outline, size: 20, color: NivaraColors.accent),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               TextField(
                 controller: phoneCtrl,
                 keyboardType: TextInputType.phone,
-                style: const TextStyle(color: NivaraColors.textHi),
+                style: TextStyle(color: NivaraColors.textHi),
                 decoration: const InputDecoration(
                   labelText: 'Phone number',
                   prefixIcon: Icon(Icons.call_outlined, size: 20, color: NivaraColors.accent),
@@ -108,14 +108,14 @@ class ConfidentialSupportScreen extends StatelessWidget {
         backgroundColor: NivaraColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text('Delete $name?',
-            style: const TextStyle(color: NivaraColors.textHi, fontSize: 17)),
-        content: const Text(
+            style: TextStyle(color: NivaraColors.textHi, fontSize: 17)),
+        content: Text(
             'This removes the contact from the local encrypted directory.',
             style: TextStyle(color: NivaraColors.textMid, fontSize: 13, height: 1.4)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: NivaraColors.textMid))),
+              child: Text('Cancel', style: TextStyle(color: NivaraColors.textMid))),
           FilledButton(
             style: FilledButton.styleFrom(
                 backgroundColor: NivaraColors.danger,
@@ -186,16 +186,16 @@ class ConfidentialSupportScreen extends StatelessWidget {
                       color: NivaraColors.surfaceAlt,
                       border: Border.all(color: NivaraColors.outline),
                     ),
-                    child: const Icon(Icons.contact_phone_outlined,
+                    child: Icon(Icons.contact_phone_outlined,
                         size: 40, color: NivaraColors.textLow),
                   ),
-                  const SizedBox(height: 18),
-                  const Text('Directory is empty.',
+                  SizedBox(height: 18),
+                  Text('Directory is empty.',
                       style: TextStyle(
                           color: NivaraColors.textHi,
                           fontSize: 16,
                           fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Text(
                     'Add your unit\'s confidential helplines.\nThey stay in the encrypted vault.',
                     textAlign: TextAlign.center,
@@ -210,13 +210,13 @@ class ConfidentialSupportScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 88),
             children: [
               Container(
-                padding: const EdgeInsets.all(13),
+                padding: EdgeInsets.all(13),
                 decoration: BoxDecoration(
                   color: NivaraColors.good.withValues(alpha: 0.07),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: NivaraColors.good.withValues(alpha: 0.25)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.verified_user_outlined, color: NivaraColors.good, size: 22),
                     SizedBox(width: 12),
@@ -245,7 +245,7 @@ class ConfidentialSupportScreen extends StatelessWidget {
                   _ => (Icons.headset_mic_outlined, 'PEER', NivaraColors.accent),
                 };
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
+                  margin: EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
                     color: NivaraColors.surface,
                     borderRadius: BorderRadius.circular(14),
@@ -253,7 +253,7 @@ class ConfidentialSupportScreen extends StatelessWidget {
                   ),
                   child: ListTile(
                     contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14)),
                     leading: Container(
@@ -269,7 +269,7 @@ class ConfidentialSupportScreen extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: NivaraColors.textHi,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 14),
@@ -277,7 +277,7 @@ class ConfidentialSupportScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(
+                          padding: EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: tint.withValues(alpha: 0.12),
@@ -294,14 +294,14 @@ class ConfidentialSupportScreen extends StatelessWidget {
                       ],
                     ),
                     subtitle: Text(phone,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: NivaraColors.textMid, fontSize: 12.5)),
                     onTap: () => _callContact(context, phone),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.call, color: NivaraColors.accent),
+                          icon: Icon(Icons.call, color: NivaraColors.accent),
                           tooltip: 'Call $name',
                           onPressed: () => _callContact(context, phone),
                         ),

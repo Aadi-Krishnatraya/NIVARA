@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/database_helper.dart';
 import 'core/ml_engine.dart';
@@ -15,10 +16,80 @@ void main() {
   runApp(const NivaraApp());
 }
 
-/// Application root. On startup it (1) generates/loads the per-device
-/// encrypted-vault passphrase, (2) pre-warms the quantized TFLite model in
-/// its background isolate, and (3) ensures the editable support directory
-/// exists. No account, score, or contact is hardcoded anywhere.
+/// Owns the app theme mode (dark / light / system), persisted through
+/// shared_preferences. Kept as a singleton so any screen can flip the
+/// theme — matching the [MLEngine.instance] pattern used elsewhere.
+/// Also watches the platform brightness so SYSTEM mode follows the OS.
+class ThemeController extends ChangeNotifier with WidgetsBindingObserver {
+  ThemeController._() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  static final ThemeController instance = ThemeController._();
+
+  static const _prefKey = 'nivara.theme_mode';
+
+  ThemeMode _mode = ThemeMode.dark;
+  ThemeMode get mode => _mode;
+  bool get isDark => _mode != ThemeMode.light;
+
+  /// Restores the persisted mode and syncs the static palette. Called once
+  /// during boot, before the first frame.
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    _mode = switch (prefs.getString(_prefKey)) {
+      'light' => ThemeMode.light,
+      'system' => ThemeMode.system,
+      _ => ThemeMode.dark,
+    };
+    syncPalette();
+  }
+
+  Future<void> setMode(ThemeMode mode) async {
+    if (mode == _mode) return;
+    _mode = mode;
+    syncPalette();
+    // Notify IMMEDIATELY (before the async pref write) so every listening
+    // widget rebuilds on the next frame — without this the theme switch
+    // only lands when some unrelated rebuild happens.
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefKey, mode.name);
+  }
+
+  /// Toggles between the dark and light palettes.
+  Future<void> toggle() =>
+      setMode(isDark ? ThemeMode.light : ThemeMode.dark);
+
+  /// Re-resolves the static [NivaraColors] palette from the current mode
+  /// (and, for system mode, the platform brightness). Called by [NivaraApp]
+  /// whenever the theme changes or the OS switches light/dark.
+  void syncPalette() {
+    final brightness = switch (_mode) {
+      ThemeMode.light => Brightness.light,
+      ThemeMode.dark => Brightness.dark,
+      ThemeMode.system =>
+        WidgetsBinding.instance.platformDispatcher.platformBrightness,
+    };
+    NivaraColors.syncWith(brightness);
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    super.didChangePlatformBrightness();
+    // Only matters in system mode: re-sync the static palette and rebuild.
+    if (_mode == ThemeMode.system) {
+      syncPalette();
+      notifyListeners();
+    }
+  }
+}
+
+/// Application root. On startup it (1) restores the persisted theme,
+/// (2) generates/loads the per-device encrypted-vault passphrase, (3) pre-warms
+/// the quantized TFLite model in its background isolate, and (4) ensures the
+/// editable support directory exists. No account, score, or contact is
+/// hardcoded anywhere.
 class NivaraApp extends StatefulWidget {
   const NivaraApp({super.key});
 
@@ -38,6 +109,7 @@ class _NivaraAppState extends State<NivaraApp> {
 
   Future<void> _bootstrap() async {
     try {
+      await ThemeController.instance.load();
       // Touches the vault (creates passphrase on first run).
       await DatabaseHelper.instance.database;
       await DatabaseHelper.instance.seedDefaultContacts();
@@ -51,15 +123,20 @@ class _NivaraAppState extends State<NivaraApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'NIVARA',
-      debugShowCheckedModeBanner: false,
-      theme: nivaraTheme(),
-      home: _booting
-          ? const _BootSplash()
-          : _bootError != null
-              ? _BootError(message: _bootError!)
-              : const LoginScreen(),
+    return ListenableBuilder(
+      listenable: ThemeController.instance,
+      builder: (context, _) => MaterialApp(
+        title: 'NIVARA',
+        debugShowCheckedModeBanner: false,
+        themeMode: ThemeController.instance.mode,
+        theme: nivaraLightTheme(),
+        darkTheme: nivaraTheme(),
+        home: _booting
+            ? const _BootSplash()
+            : _bootError != null
+                ? _BootError(message: _bootError!)
+                : const LoginScreen(),
+      ),
     );
   }
 }
@@ -75,30 +152,30 @@ class _BootSplash extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const NivaraMark(size: 92),
-            const SizedBox(height: 24),
-            const Text('NIVARA',
+            NivaraMark(size: 92),
+            SizedBox(height: 24),
+            Text('NIVARA',
                 style: TextStyle(
                     color: NivaraColors.textHi,
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 6)),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text('OPERATIONAL READINESS · ON-DEVICE',
                 style: TextStyle(
                     color: NivaraColors.textLow,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 2.2)),
-            const SizedBox(height: 36),
-            const SizedBox(
+            SizedBox(height: 36),
+            SizedBox(
               width: 26,
               height: 26,
               child: CircularProgressIndicator(
                   strokeWidth: 2.4, color: NivaraColors.accent),
             ),
-            const SizedBox(height: 18),
-            const Text('Preparing encrypted vault and on-device model…',
+            SizedBox(height: 18),
+            Text('Preparing encrypted vault and on-device model…',
                 style: TextStyle(color: NivaraColors.textLow, fontSize: 11.5)),
           ],
         ),
@@ -117,21 +194,21 @@ class _BootError extends StatelessWidget {
       backgroundColor: NivaraColors.bg,
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 56, color: NivaraColors.danger),
-              const SizedBox(height: 16),
-              const Text('Startup failure',
+              Icon(Icons.error_outline, size: 56, color: NivaraColors.danger),
+              SizedBox(height: 16),
+              Text('Startup failure',
                   style: TextStyle(
                       color: NivaraColors.textHi,
                       fontSize: 18,
                       fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: NivaraColors.textMid, fontSize: 12)),
+                  style: TextStyle(color: NivaraColors.textMid, fontSize: 12)),
             ],
           ),
         ),
@@ -179,6 +256,13 @@ class _SoldierMainContainerState extends State<SoldierMainContainer> {
       appBar: AppBar(
         title: Text('Soldier View (${widget.session.name})'),
         actions: [
+          IconButton(
+            icon: Icon(ThemeController.instance.isDark
+                ? Icons.light_mode_outlined
+                : Icons.dark_mode_outlined),
+            tooltip: 'Switch theme',
+            onPressed: () => ThemeController.instance.toggle(),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Log out',

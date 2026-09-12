@@ -92,16 +92,16 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+            padding: EdgeInsets.symmetric(horizontal: 28, vertical: 24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: BoxConstraints(maxWidth: 420),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 12),
-                  const Center(child: NivaraMark(size: 84)),
-                  const SizedBox(height: 22),
-                  const Text(
+                  SizedBox(height: 12),
+                  Center(child: NivaraMark(size: 84)),
+                  SizedBox(height: 22),
+                  Text(
                     'NIVARA',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -110,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         fontWeight: FontWeight.w800,
                         letterSpacing: 6),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Text(
                     'WELLNESS INTELLIGENCE · NEVER LEAVES THE DEVICE',
                     textAlign: TextAlign.center,
@@ -120,23 +120,23 @@ class _LoginScreenState extends State<LoginScreen> {
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1.6),
                   ),
-                  const SizedBox(height: 36),
+                  SizedBox(height: 36),
                   TextField(
                     controller: _name,
                     textCapitalization: TextCapitalization.words,
-                    style: const TextStyle(color: NivaraColors.textHi),
-                    decoration: const InputDecoration(
+                    style: TextStyle(color: NivaraColors.textHi),
+                    decoration: InputDecoration(
                       labelText: 'Name / Service name',
                       prefixIcon:
                           Icon(Icons.badge_outlined, size: 20, color: NivaraColors.accent),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                   TextField(
                     controller: _passcode,
                     obscureText: true,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: NivaraColors.textHi, letterSpacing: 4),
                     onSubmitted: (_) => _submit(),
                     decoration: const InputDecoration(
@@ -156,12 +156,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline,
+                          Icon(Icons.error_outline,
                               size: 16, color: NivaraColors.danger),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(_error!,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: NivaraColors.danger, fontSize: 12.5)),
                           ),
                         ],
@@ -182,25 +182,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 10),
                   TextButton(
                     onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const RegistrationScreen()),
+                      MaterialPageRoute(builder: (_) => RegistrationScreen()),
                     ),
                     child: Text(
                       _hasAccounts
                           ? 'New device or new personnel? Provision an account'
                           : 'No accounts yet — provision the first one',
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: NivaraColors.accent,
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.lock_outline,
                           size: 12, color: NivaraColors.textLow),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           'Credentials verified against salted SHA-256 hashes. '

@@ -114,17 +114,17 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                 color: NivaraColors.surfaceAlt,
                 border: Border.all(color: NivaraColors.outline),
               ),
-              child: const Icon(Icons.show_chart, size: 40, color: NivaraColors.textLow),
+              child: Icon(Icons.show_chart, size: 40, color: NivaraColors.textLow),
             ),
-            const SizedBox(height: 18),
-            const Text(
+            SizedBox(height: 18),
+            Text(
               'No Check-In Data Yet',
               style: TextStyle(
                   color: NivaraColors.textHi,
                   fontSize: 17,
                   fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               'Submit a check-in to see your trends graph.',
               style: TextStyle(color: NivaraColors.textMid, fontSize: 13),
@@ -158,13 +158,13 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
             : NivaraColors.good;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Stress & Wellness History',
                   style: TextStyle(
@@ -174,16 +174,16 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.refresh, color: NivaraColors.accent, size: 20),
+                icon: Icon(Icons.refresh, color: NivaraColors.accent, size: 20),
                 tooltip: 'Refresh',
                 onPressed: _loadData,
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           // Latest-score hero.
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: NivaraColors.surface,
               borderRadius: BorderRadius.circular(NivaraRadius.card),
@@ -200,7 +200,7 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                     height: 1,
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,7 +224,7 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                      padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                       decoration: BoxDecoration(
                         color: deltaColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(NivaraRadius.pill),
@@ -235,10 +235,10 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                               fontSize: 11.5,
                               fontWeight: FontWeight.w700)),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Text(
                       'avg ${_avg!.toStringAsFixed(0)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: NivaraColors.textMid,
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600),
@@ -260,7 +260,7 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                   drawVerticalLine: false,
                   horizontalInterval: 25,
                   getDrawingHorizontalLine: (v) => FlLine(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: NivaraColors.outline,
                     strokeWidth: 1,
                   ),
                 ),
@@ -272,7 +272,7 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                       reservedSize: 26,
                       getTitlesWidget: (v, _) => Text(
                         v.toInt().toString(),
-                        style: const TextStyle(color: NivaraColors.textLow, fontSize: 10),
+                        style: TextStyle(color: NivaraColors.textLow, fontSize: 10),
                       ),
                     ),
                   ),
@@ -285,10 +285,10 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                         if (idx < 0 || idx >= _checkIns.length) return const SizedBox();
                         final ts = DateTime.parse(_checkIns[idx]['timestamp'] as String);
                         return Padding(
-                          padding: const EdgeInsets.only(top: 4),
+                          padding: EdgeInsets.only(top: 4),
                           child: Text(
                             '${ts.day}/${ts.month}',
-                            style: const TextStyle(color: NivaraColors.textLow, fontSize: 10),
+                            style: TextStyle(color: NivaraColors.textLow, fontSize: 10),
                           ),
                         );
                       },
@@ -304,7 +304,7 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                     isCurved: true,
                     barWidth: 2.5,
                     color: NivaraColors.accent,
-                    dotData: const FlDotData(show: false),
+                    dotData: FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
                       gradient: LinearGradient(
@@ -326,7 +326,7 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                       final ts = DateTime.parse(_checkIns[idx]['timestamp'] as String);
                       return LineTooltipItem(
                         '${spot.y.toStringAsFixed(0)} · ${ts.day}/${ts.month}',
-                        const TextStyle(
+                        TextStyle(
                             color: NivaraColors.textHi,
                             fontSize: 12,
                             fontWeight: FontWeight.w600),
@@ -337,8 +337,8 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 18),
-          const Text(
+          SizedBox(height: 18),
+          Text(
             'Recent Records',
             style: TextStyle(
                 color: NivaraColors.textHi,
@@ -357,8 +357,8 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                 final ts = entry.timestamp;
                 final color = _bandColor(entry.level);
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
+                  margin: EdgeInsets.only(bottom: 8),
+                  padding: EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: NivaraColors.surface,
                     borderRadius: BorderRadius.circular(14),
@@ -382,7 +382,7 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                               fontWeight: FontWeight.w800),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,7 +391,7 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                               children: [
                                 Text(
                                   '${entry.stressScore.toStringAsFixed(0)}/100',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       color: NivaraColors.textHi,
                                       fontSize: 13.5,
                                       fontWeight: FontWeight.w700),
@@ -405,11 +405,11 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                                         letterSpacing: 0.4)),
                               ],
                             ),
-                            const SizedBox(height: 2),
+                            SizedBox(height: 2),
                             Text(
                               'Mood ${entry.moodScore.toStringAsFixed(1)} · Sleep ${entry.sleepHours.toStringAsFixed(1)}h · Readiness ${entry.physicalReadiness.toStringAsFixed(1)}'
                               '${entry.topDriver == null ? '' : '\nModel-explained: ${entry.topDriver!.label} ${entry.topDriver!.points >= 0 ? '+' : ''}${entry.topDriver!.points.toStringAsFixed(1)} pts'}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: NivaraColors.textMid, fontSize: 11.5, height: 1.35),
                             ),
                           ],
@@ -417,7 +417,7 @@ class _StressTrendsScreenState extends State<StressTrendsScreen> {
                       ),
                       Text(
                         '${ts.day}/${ts.month}',
-                        style: const TextStyle(color: NivaraColors.textLow, fontSize: 11.5),
+                        style: TextStyle(color: NivaraColors.textLow, fontSize: 11.5),
                       ),
                     ],
                   ),

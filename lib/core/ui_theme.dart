@@ -2,23 +2,108 @@ import 'package:flutter/material.dart';
 
 /// NIVARA design system.
 ///
-/// One source of truth for the tactical-dark palette, shape language, and
-/// the small reusable surfaces (cards, stat tiles, section headers, pills)
-/// so every screen in the app looks like one product.
+/// One source of truth for the palette, shape language, and the small
+/// reusable surfaces (cards, stat tiles, section headers, pills) so every
+/// screen in the app looks like one product.
+///
+/// The palette is brightness-aware: `NivaraColors` resolves through the
+/// [NivaraPalette] that follows the ambient `ThemeData.brightness`. The dark
+/// palette is byte-for-byte the original tactical palette, so the app looks
+/// unchanged by default; `nivaraLightTheme()` adds the light variant.
 abstract final class NivaraColors {
-  static const bg = Color(0xFF0A1014); // deep ops background
-  static const surface = Color(0xFF131C22); // cards
-  static const surfaceAlt = Color(0xFF1A252D); // raised elements / wells
-  static const outline = Color(0xFF28343E); // hairlines
+  /// Deep ops background (dark) / soft day background (light).
+  static Color get bg => _current.bg;
+  static Color get surface => _current.surface;
+  static Color get surfaceAlt => _current.surfaceAlt;
+  static Color get outline => _current.outline;
+  static Color get textHi => _current.textHi;
+  static Color get textMid => _current.textMid;
+  static Color get textLow => _current.textLow;
+
+  /// Accent + accent wash are shared constants across both palettes.
   static const accent = Color(0xFF2DD4BF); // primary teal
   static const accentSoft = Color(0x332DD4BF); // 20% teal wash
-  static const danger = Color(0xFFF87171);
-  static const warn = Color(0xFFFBBF24);
-  static const good = Color(0xFF34D399);
-  static const info = Color(0xFF60A5FA);
-  static const textHi = Color(0xFFEFF6F8);
-  static const textMid = Color(0xFF9AAABB);
-  static const textLow = Color(0xFF5D6B77);
+
+  /// Signal colors adapt to brightness: the dark-theme tints (red-400,
+  /// amber-400, emerald-400, blue-400) are unreadable on white surfaces,
+  /// so the light theme uses their 700-shade counterparts.
+  static Color get danger => _current.danger;
+  static Color get warn => _current.warn;
+  static Color get good => _current.good;
+  static Color get info => _current.info;
+
+  static NivaraPalette _current = NivaraPalette.dark;
+
+  static NivaraPalette get current => _current;
+
+  /// Points the palette at the given brightness. Called by [NivaraApp]'s
+  /// theme controller on startup and on every theme switch, right before
+  /// `setState` propagates the new `ThemeData`.
+  static void syncWith(Brightness brightness) {
+    _current =
+        brightness == Brightness.light ? NivaraPalette.light : NivaraPalette.dark;
+  }
+}
+
+/// Neutral color ramp for one brightness.
+class NivaraPalette {
+  final Color bg;
+  final Color surface;
+  final Color surfaceAlt;
+  final Color outline;
+  final Color textHi;
+  final Color textMid;
+  final Color textLow;
+  final Color danger;
+  final Color warn;
+  final Color good;
+  final Color info;
+
+  const NivaraPalette({
+    required this.bg,
+    required this.surface,
+    required this.surfaceAlt,
+    required this.outline,
+    required this.textHi,
+    required this.textMid,
+    required this.textLow,
+    required this.danger,
+    required this.warn,
+    required this.good,
+    required this.info,
+  });
+
+  /// The original tactical-dark palette (unchanged).
+  static const NivaraPalette dark = NivaraPalette(
+    bg: Color(0xFF0A1014), // deep ops background
+    surface: Color(0xFF131C22), // cards
+    surfaceAlt: Color(0xFF1A252D), // raised elements / wells
+    outline: Color(0xFF28343E), // hairlines
+    textHi: Color(0xFFEFF6F8),
+    textMid: Color(0xFF9AAABB),
+    textLow: Color(0xFF5D6B77),
+    danger: Color(0xFFF87171),
+    warn: Color(0xFFFBBF24),
+    good: Color(0xFF34D399),
+    info: Color(0xFF60A5FA),
+  );
+
+  /// Day variant: soft paper background, white cards, graphite text.
+  /// Signal colors darken to their 700-shades so they stay readable on
+  /// white cards (the 400-shades wash out completely).
+  static const NivaraPalette light = NivaraPalette(
+    bg: Color(0xFFF3F6F8),
+    surface: Color(0xFFFFFFFF),
+    surfaceAlt: Color(0xFFE8EEF1),
+    outline: Color(0xFFD3DDE3),
+    textHi: Color(0xFF17222A),
+    textMid: Color(0xFF4A5A66),
+    textLow: Color(0xFF7A8B96),
+    danger: Color(0xFFB91C1C), // red-700
+    warn: Color(0xFFB45309), // amber-700
+    good: Color(0xFF047857), // emerald-700
+    info: Color(0xFF1D4ED8), // blue-700
+  );
 }
 
 abstract final class NivaraRadius {
@@ -28,71 +113,79 @@ abstract final class NivaraRadius {
 }
 
 /// The app-wide dark theme. Material 3, teal-seeded.
-ThemeData nivaraTheme() {
+ThemeData nivaraTheme() => _buildTheme(Brightness.dark);
+
+/// The app-wide light theme. Same shape language, day palette.
+ThemeData nivaraLightTheme() => _buildTheme(Brightness.light);
+
+ThemeData _buildTheme(Brightness brightness) {
+  final isDark = brightness == Brightness.dark;
+  final p = isDark ? NivaraPalette.dark : NivaraPalette.light;
   final base = ThemeData(
     useMaterial3: true,
-    brightness: Brightness.dark,
-    colorScheme: const ColorScheme.dark(
+    brightness: brightness,
+    colorScheme: (isDark ? const ColorScheme.dark() : const ColorScheme.light())
+        .copyWith(
       primary: NivaraColors.accent,
-      onPrimary: Color(0xFF04211D),
+      onPrimary: const Color(0xFF04211D),
       secondary: NivaraColors.accent,
-      surface: NivaraColors.surface,
-      onSurface: NivaraColors.textHi,
-      surfaceContainerHighest: NivaraColors.surfaceAlt,
+      surface: p.surface,
+      onSurface: p.textHi,
+      surfaceContainerHighest: p.surfaceAlt,
       error: NivaraColors.danger,
     ),
-    scaffoldBackgroundColor: NivaraColors.bg,
+    scaffoldBackgroundColor: p.bg,
   );
 
   return base.copyWith(
-    appBarTheme: const AppBarTheme(
-      backgroundColor: NivaraColors.bg,
+    appBarTheme: AppBarTheme(
+      backgroundColor: p.bg,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
       titleTextStyle: TextStyle(
-        color: NivaraColors.textHi,
+        color: p.textHi,
         fontSize: 17,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.2,
       ),
-      iconTheme: IconThemeData(color: NivaraColors.textMid),
+      iconTheme: IconThemeData(color: p.textMid),
     ),
-    cardTheme: const CardThemeData(
-      color: NivaraColors.surface,
+    cardTheme: CardThemeData(
+      color: p.surface,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(NivaraRadius.card)),
       ),
       margin: EdgeInsets.zero,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: NivaraColors.surfaceAlt,
-      hintStyle: const TextStyle(color: NivaraColors.textLow),
-      labelStyle: const TextStyle(color: NivaraColors.textMid),
+      fillColor: p.surfaceAlt,
+      hintStyle: TextStyle(color: p.textLow),
+      labelStyle: TextStyle(color: p.textMid),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       border: const OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(NivaraRadius.field)),
         borderSide: BorderSide.none,
       ),
-      enabledBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(NivaraRadius.field)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: const BorderRadius.all(Radius.circular(NivaraRadius.field)),
         borderSide: BorderSide(color: Colors.transparent),
       ),
-      focusedBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(NivaraRadius.field)),
-        borderSide: BorderSide(color: NivaraColors.accent, width: 1.4),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: const BorderRadius.all(Radius.circular(NivaraRadius.field)),
+        borderSide: const BorderSide(color: NivaraColors.accent, width: 1.4),
       ),
-      errorBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(NivaraRadius.field)),
-        borderSide: BorderSide(color: NivaraColors.danger, width: 1.2),
+      errorBorder: OutlineInputBorder(
+        borderRadius: const BorderRadius.all(Radius.circular(NivaraRadius.field)),
+        borderSide: BorderSide(color: p.danger, width: 1.2),
       ),
-      focusedErrorBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(NivaraRadius.field)),
-        borderSide: BorderSide(color: NivaraColors.danger, width: 1.4),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: const BorderRadius.all(Radius.circular(NivaraRadius.field)),
+        borderSide: BorderSide(color: p.danger, width: 1.4),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -108,9 +201,9 @@ ThemeData nivaraTheme() {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: NivaraColors.textHi,
+        foregroundColor: p.textHi,
         minimumSize: const Size.fromHeight(48),
-        side: const BorderSide(color: NivaraColors.outline),
+        side: BorderSide(color: p.outline),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(NivaraRadius.field)),
         ),
@@ -121,54 +214,54 @@ ThemeData nivaraTheme() {
         backgroundColor: WidgetStateProperty.resolveWith((states) =>
             states.contains(WidgetState.selected)
                 ? NivaraColors.accentSoft
-                : NivaraColors.surfaceAlt),
+                : p.surfaceAlt),
         foregroundColor: WidgetStateProperty.resolveWith((states) =>
             states.contains(WidgetState.selected)
                 ? NivaraColors.accent
-                : NivaraColors.textMid),
+                : p.textMid),
         side: WidgetStateProperty.resolveWith((states) => BorderSide(
               color: states.contains(WidgetState.selected)
                   ? NivaraColors.accent.withValues(alpha: 0.6)
-                  : NivaraColors.outline,
+                  : p.outline,
             )),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     ),
-    sliderTheme: const SliderThemeData(
+    sliderTheme: SliderThemeData(
       activeTrackColor: NivaraColors.accent,
-      inactiveTrackColor: NivaraColors.surfaceAlt,
+      inactiveTrackColor: p.surfaceAlt,
       thumbColor: NivaraColors.accent,
       overlayColor: NivaraColors.accentSoft,
       trackHeight: 4,
-      valueIndicatorColor: NivaraColors.surfaceAlt,
+      valueIndicatorColor: p.surfaceAlt,
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? NivaraColors.accent : NivaraColors.textLow),
+          (s) => s.contains(WidgetState.selected) ? NivaraColors.accent : p.textLow),
       trackColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected)
               ? NivaraColors.accentSoft
-              : NivaraColors.surfaceAlt),
+              : p.surfaceAlt),
     ),
-    snackBarTheme: const SnackBarThemeData(
+    snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: NivaraColors.surfaceAlt,
-      contentTextStyle: TextStyle(color: NivaraColors.textHi, fontSize: 13),
-      shape: RoundedRectangleBorder(
+      backgroundColor: p.surfaceAlt,
+      contentTextStyle: TextStyle(color: p.textHi, fontSize: 13),
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(12)),
       ),
     ),
-    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: NivaraColors.surface,
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: p.surface,
       selectedItemColor: NivaraColors.accent,
-      unselectedItemColor: NivaraColors.textLow,
+      unselectedItemColor: p.textLow,
       type: BottomNavigationBarType.fixed,
-      selectedLabelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-      unselectedLabelStyle: TextStyle(fontSize: 11),
+      selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+      unselectedLabelStyle: const TextStyle(fontSize: 11),
     ),
-    dividerTheme: const DividerThemeData(color: NivaraColors.outline, thickness: 1),
+    dividerTheme: DividerThemeData(color: p.outline, thickness: 1),
     splashFactory: InkSparkle.splashFactory,
   );
 }
@@ -235,7 +328,7 @@ class SectionHeader extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Text(title,
-              style: const TextStyle(
+              style: TextStyle(
                   color: NivaraColors.textHi,
                   fontSize: 14.5,
                   fontWeight: FontWeight.w700,
@@ -286,7 +379,7 @@ class StatTile extends StatelessWidget {
               ],
               Expanded(
                 child: Text(label.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: NivaraColors.textLow,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,

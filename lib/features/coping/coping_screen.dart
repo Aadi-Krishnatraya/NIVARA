@@ -80,7 +80,7 @@ class CopingLibraryScreen extends StatelessWidget {
       ),
       builder: (context) {
         return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+          padding: EdgeInsets.fromLTRB(24, 20, 24, 28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,38 +96,38 @@ class CopingLibraryScreen extends StatelessWidget {
                     ),
                     child: Icon(p.icon, size: 24, color: NivaraColors.accent),
                   ),
-                  const SizedBox(width: 14),
+                  SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       p.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: NivaraColors.textHi,
                           fontSize: 18,
                           fontWeight: FontWeight.w800),
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    padding: EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
                       color: NivaraColors.surfaceAlt,
                       borderRadius: BorderRadius.circular(NivaraRadius.pill),
                     ),
                     child: Text(p.duration,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: NivaraColors.textMid,
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Text(
                 p.description,
-                style: const TextStyle(
+                style: TextStyle(
                     color: NivaraColors.textMid, fontSize: 13.5, height: 1.45),
               ),
-              const Divider(height: 28),
-              const Text(
+              Divider(height: 28),
+              Text(
                 'Tactical Steps:',
                 style: TextStyle(
                     color: NivaraColors.textHi,
@@ -149,15 +149,15 @@ class CopingLibraryScreen extends StatelessWidget {
                             shape: BoxShape.circle,
                           ),
                           child: Text('${e.key + 1}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: NivaraColors.accent,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800)),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                             child: Text(e.value,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: NivaraColors.textHi, fontSize: 14, height: 1.4))),
                       ],
                     ),
@@ -181,9 +181,9 @@ class CopingLibraryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: NivaraColors.bg,
-      appBar: AppBar(title: const Text('Tactical Coping Library')),
+      appBar: AppBar(title: Text('Tactical Coping Library')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        padding: EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
           Text(
             'Field-proven down-regulation drills. Work through one when the '
@@ -191,9 +191,9 @@ class CopingLibraryScreen extends StatelessWidget {
             style: TextStyle(
                 color: NivaraColors.textMid, fontSize: 12.5, height: 1.45),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           ..._practices.map((p) => Container(
-                margin: const EdgeInsets.only(bottom: 10),
+                margin: EdgeInsets.only(bottom: 10),
                 child: Material(
                   color: NivaraColors.surface,
                   borderRadius: BorderRadius.circular(NivaraRadius.card),
@@ -201,7 +201,7 @@ class CopingLibraryScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(NivaraRadius.card),
                     onTap: () => _showDetailModal(context, p),
                     child: Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(NivaraRadius.card),
                         border: Border.all(color: NivaraColors.outline),
@@ -217,36 +217,36 @@ class CopingLibraryScreen extends StatelessWidget {
                             ),
                             child: Icon(p.icon, size: 26, color: NivaraColors.accent),
                           ),
-                          const SizedBox(width: 14),
+                          SizedBox(width: 14),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(p.title,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: NivaraColors.textHi,
                                         fontSize: 14.5,
                                         fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 3),
+                                SizedBox(height: 3),
                                 Text(p.subtitle,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: NivaraColors.textMid,
                                         fontSize: 11.5,
                                         height: 1.3)),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(p.duration,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       color: NivaraColors.accent,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700)),
-                              const SizedBox(height: 4),
-                              const Icon(Icons.chevron_right,
+                              SizedBox(height: 4),
+                              Icon(Icons.chevron_right,
                                   size: 18, color: NivaraColors.textLow),
                             ],
                           ),

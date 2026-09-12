@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:nivara_app/core/database_helper.dart';
 import 'package:nivara_app/core/shapley.dart';
+import 'package:nivara_app/main.dart';
 import 'package:nivara_app/core/ui_theme.dart';
 import 'package:nivara_app/core/user_session.dart';
 import '../auth/login_screen.dart';
@@ -166,6 +167,13 @@ class _CommanderScreenState extends State<CommanderScreen> {
         title: Text('${widget.session.unitId} Dashboard'),
         actions: [
           IconButton(
+            icon: Icon(ThemeController.instance.isDark
+                ? Icons.light_mode_outlined
+                : Icons.dark_mode_outlined),
+            tooltip: 'Switch theme',
+            onPressed: () => ThemeController.instance.toggle(),
+          ),
+          IconButton(
             icon: const Icon(Icons.receipt_long, color: NivaraColors.accent),
             tooltip: 'Audit trail',
             onPressed: () => Navigator.of(context).push(
@@ -184,7 +192,7 @@ class _CommanderScreenState extends State<CommanderScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: NivaraColors.accent))
+          ? Center(child: CircularProgressIndicator(color: NivaraColors.accent))
           : _privacyBlocked
               ? _buildPrivacyBlocked()
               : RefreshIndicator(
@@ -192,7 +200,7 @@ class _CommanderScreenState extends State<CommanderScreen> {
                   backgroundColor: NivaraColors.surface,
                   onRefresh: _loadSquadMetrics,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, 24),
                     children: [
                       Row(
                         children: [
@@ -202,21 +210,21 @@ class _CommanderScreenState extends State<CommanderScreen> {
                               children: [
                                 Text(
                                   'Welcome, ${widget.session.name}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       color: NivaraColors.textHi,
                                       fontSize: 20,
                                       fontWeight: FontWeight.w800),
                                 ),
-                                const SizedBox(height: 5),
+                                SizedBox(height: 5),
                                 Row(
                                   children: [
                                     Icon(Icons.lock_outline,
                                         size: 12, color: NivaraColors.textLow),
-                                    const SizedBox(width: 5),
+                                    SizedBox(width: 5),
                                     Expanded(
                                       child: Text(
                                         'Anonymized unit metrics · Laplace noise applied',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             color: NivaraColors.textLow,
                                             fontSize: 12,
                                             height: 1.3),
@@ -268,9 +276,9 @@ class _CommanderScreenState extends State<CommanderScreen> {
                           tint: NivaraColors.info,
                           pill: 'unit-wide',
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         NivaraCard(
-                          padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
+                          padding: EdgeInsets.fromLTRB(8, 16, 16, 8),
                           child: SizedBox(
                             height: 180,
                             child: LineChart(
@@ -294,7 +302,7 @@ class _CommanderScreenState extends State<CommanderScreen> {
                                       reservedSize: 28,
                                       getTitlesWidget: (v, _) => Text(
                                         v.toInt().toString(),
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             color: NivaraColors.textLow, fontSize: 10),
                                       ),
                                     ),
@@ -310,10 +318,10 @@ class _CommanderScreenState extends State<CommanderScreen> {
                                         final day =
                                             (_trend[idx]['day'] ?? '').toString();
                                         return Padding(
-                                          padding: const EdgeInsets.only(top: 4),
+                                          padding: EdgeInsets.only(top: 4),
                                           child: Text(
                                             day.length >= 10 ? day.substring(5) : day,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 color: NivaraColors.textLow,
                                                 fontSize: 10),
                                           ),
@@ -406,21 +414,21 @@ class _CommanderScreenState extends State<CommanderScreen> {
             title: 'Model-Explained Drivers (Shapley)',
             pill: 'pooled · anonymized',
           ),
-          const SizedBox(height: 6),
-          const Text(
+          SizedBox(height: 6),
+          Text(
             'Mean impact on the stress index, computed by each soldier\'s '
             'on-device model and pooled with differential privacy.',
             style: TextStyle(color: NivaraColors.textMid, fontSize: 11.5, height: 1.4),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           if (ranked.isEmpty)
-            const Text('No attributed logs yet.',
+            Text('No attributed logs yet.',
                 style: TextStyle(color: NivaraColors.textLow, fontSize: 12))
           else
             ...ranked.map((e) {
               final color = e.value >= 0 ? NivaraColors.danger : NivaraColors.good;
               return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: EdgeInsets.only(bottom: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -428,7 +436,7 @@ class _CommanderScreenState extends State<CommanderScreen> {
                       children: [
                         Expanded(
                           child: Text(e.key,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: NivaraColors.textHi,
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600)),
@@ -441,7 +449,7 @@ class _CommanderScreenState extends State<CommanderScreen> {
                                 fontWeight: FontWeight.w800)),
                       ],
                     ),
-                    const SizedBox(height: 5),
+                    SizedBox(height: 5),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(3),
                       child: SizedBox(
@@ -474,9 +482,9 @@ class _CommanderScreenState extends State<CommanderScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionHeader(icon: icon, title: title, tint: color),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Text(body,
-              style: const TextStyle(
+              style: TextStyle(
                   color: NivaraColors.textMid, fontSize: 12.5, height: 1.5)),
         ],
       ),
@@ -487,7 +495,7 @@ class _CommanderScreenState extends State<CommanderScreen> {
   Widget _buildPrivacyBlocked() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -499,10 +507,10 @@ class _CommanderScreenState extends State<CommanderScreen> {
                 color: NivaraColors.warn.withValues(alpha: 0.1),
                 border: Border.all(color: NivaraColors.warn.withValues(alpha: 0.4)),
               ),
-              child: const Icon(Icons.shield_outlined, size: 42, color: NivaraColors.warn),
+              child: Icon(Icons.shield_outlined, size: 42, color: NivaraColors.warn),
             ),
-            const SizedBox(height: 22),
-            const Text(
+            SizedBox(height: 22),
+            Text(
               'Squad size < 5.',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -510,11 +518,11 @@ class _CommanderScreenState extends State<CommanderScreen> {
                   fontSize: 20,
                   fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               'Data rolled into Platoon aggregate to preserve identity. ($_contributors contributors detected)',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                   color: NivaraColors.textMid, fontSize: 14, height: 1.5),
             ),
             const SizedBox(height: 26),

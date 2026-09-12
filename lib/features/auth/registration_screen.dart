@@ -78,35 +78,35 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: NivaraColors.bg,
-      appBar: AppBar(title: const Text('Provision Account')),
+      appBar: AppBar(title: Text('Provision Account')),
       body: SafeArea(
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
             children: [
-              const Center(child: NivaraMark(size: 64)),
-              const SizedBox(height: 10),
+              Center(child: NivaraMark(size: 64)),
+              SizedBox(height: 10),
               Text(
                 'Create the first identity on this device.\n'
                 'Credentials are hashed with a unique random salt.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: NivaraColors.textMid, fontSize: 12.5, height: 1.45),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               TextFormField(
                 controller: _name,
                 textCapitalization: TextCapitalization.words,
-                style: const TextStyle(color: NivaraColors.textHi),
+                style: TextStyle(color: NivaraColors.textHi),
                 decoration: _decor('Full name / Service name', Icons.badge_outlined),
                 validator: (v) =>
                     (v == null || v.trim().length < 3) ? 'Enter at least 3 characters' : null,
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               TextFormField(
                 controller: _unit,
                 textCapitalization: TextCapitalization.characters,
-                style: const TextStyle(color: NivaraColors.textHi, letterSpacing: 1.2),
+                style: TextStyle(color: NivaraColors.textHi, letterSpacing: 1.2),
                 decoration: _decor('Unit (e.g. ALPHA_SQUAD)', Icons.groups_2_outlined),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Unit is required' : null,
@@ -119,7 +119,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 subtitle: 'Confidential check-ins · trends · support bridge',
                 onTap: () => setState(() => _role = UserRole.soldier),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               _roleCard(
                 selected: _role == UserRole.commander,
                 icon: Icons.shield_outlined,
@@ -127,22 +127,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 subtitle: 'Anonymized unit aggregates only — never individual data',
                 onTap: () => setState(() => _role = UserRole.commander),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               TextFormField(
                 controller: _passcode,
                 obscureText: true,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: NivaraColors.textHi, letterSpacing: 4),
+                style: TextStyle(color: NivaraColors.textHi, letterSpacing: 4),
                 decoration: _decor('Passcode (min 4 characters)', Icons.key_outlined),
                 validator: (v) =>
                     (v == null || v.length < 4) ? 'Minimum 4 characters' : null,
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               TextFormField(
                 controller: _confirm,
                 obscureText: true,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: NivaraColors.textHi, letterSpacing: 4),
+                style: TextStyle(color: NivaraColors.textHi, letterSpacing: 4),
                 decoration: _decor('Confirm passcode', Icons.key_outlined),
                 validator: (v) =>
                     v != _passcode.text ? 'Passcodes do not match' : null,
@@ -157,7 +157,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     border: Border.all(color: NivaraColors.danger.withValues(alpha: 0.35)),
                   ),
                   child: Text(_error!,
-                      style: const TextStyle(color: NivaraColors.danger, fontSize: 12.5),
+                      style: TextStyle(color: NivaraColors.danger, fontSize: 12.5),
                       textAlign: TextAlign.center),
                 ),
               ],
@@ -189,7 +189,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.all(13),
+        padding: EdgeInsets.all(13),
         decoration: BoxDecoration(
           color: selected ? NivaraColors.accentSoft : NivaraColors.surfaceAlt,
           borderRadius: BorderRadius.circular(14),
@@ -203,7 +203,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             Icon(icon,
                 size: 22,
                 color: selected ? NivaraColors.accent : NivaraColors.textLow),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,7 +214,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               selected ? NivaraColors.accent : NivaraColors.textHi,
                           fontSize: 14,
                           fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   Text(subtitle,
                       style: TextStyle(
                           color: selected

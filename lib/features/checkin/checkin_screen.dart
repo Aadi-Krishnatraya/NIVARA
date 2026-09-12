@@ -42,6 +42,7 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
   bool _evaluating = false;
   bool _submitting = false;
   bool _engineReady = false;
+  String? _engineError;
 
   @override
   void initState() {
@@ -50,7 +51,13 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
   }
 
   Future<void> _bootstrap() async {
-    await MLEngine.instance.load();
+    try {
+      await MLEngine.instance.load();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _engineError = '$e');
+      return;
+    }
     final ctx = await DatabaseHelper.instance.getOperationalContext(widget.session.userId);
     if (!mounted) return;
     setState(() {
@@ -141,10 +148,50 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
     return Scaffold(
       backgroundColor: NivaraColors.bg,
       appBar: AppBar(
-        title: const Text('Daily Check-In'),
+        title: Text('Daily Check-In'),
       ),
-      body: !_engineReady
-          ? const Center(
+      body: _engineError != null
+          ? Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.memory,
+                        size: 48, color: NivaraColors.warn),
+                    SizedBox(height: 14),
+                    Text('Edge AI unavailable',
+                        style: TextStyle(
+                            color: NivaraColors.textHi,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700)),
+                    SizedBox(height: 8),
+                    Text(
+                      'The on-device stress model could not be loaded, '
+                      'so scoring is disabled. Check-ins cannot run '
+                      'without the local model.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: NivaraColors.textMid, fontSize: 12.5, height: 1.5),
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _engineError = null;
+                          _engineReady = false;
+                        });
+                        _bootstrap();
+                      },
+                      icon: Icon(Icons.refresh, size: 18),
+                      label: Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : !_engineReady
+          ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -205,18 +252,18 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   activeThumbColor: NivaraColors.accent,
-                  title: const Text('Leave cancelled in last 30 days',
+                  title: Text('Leave cancelled in last 30 days',
                       style: TextStyle(color: NivaraColors.textMid, fontSize: 13.5)),
                   value: _cancelledLeave,
                   onChanged: (v) => setState(() { _cancelledLeave = v; _evaluatedScore = null; }),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
 
                 // Edge-AI evaluation panel.
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
+                  duration: Duration(milliseconds: 300),
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: NivaraColors.surface,
                     borderRadius: BorderRadius.circular(NivaraRadius.card),
@@ -265,7 +312,7 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                                   height: 1),
                             ),
                             Padding(
-                              padding: const EdgeInsets.only(left: 6, bottom: 7),
+                              padding: EdgeInsets.only(left: 6, bottom: 7),
                               child: Text(
                                   '/ 100 · ${classifyStress(_evaluatedScore!).label}',
                                   style: TextStyle(
@@ -273,9 +320,9 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600)),
                             ),
-                            const Spacer(),
+                            Spacer(),
                             Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: NivaraColors.surfaceAlt,
@@ -283,16 +330,16 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                                     BorderRadius.circular(NivaraRadius.pill),
                               ),
                               child: Text('$_inferenceMs ms on CPU',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       color: NivaraColors.textLow, fontSize: 10.5)),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
+                        SizedBox(height: 14),
                         if (_contributions.isNotEmpty)
                           _shapleyPanel()
                         else
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.only(bottom: 8),
                             child: Text('Explaining this score on-device…',
                                 style: TextStyle(
@@ -304,23 +351,23 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                           child: FilledButton(
                             onPressed: _submitting ? null : _submit,
                             child: _submitting
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 20, height: 20,
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2, color: Color(0xFF04211D)))
-                                : const Text('Log this check-in'),
+                                : Text('Log this check-in'),
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 Row(
                   children: [
                     Icon(Icons.enhanced_encryption,
                         size: 13, color: NivaraColors.textLow),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'Model: 3-layer MLP, full-int8 quantized, trained on synthetic '
@@ -345,8 +392,8 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
         .map((c) => c.value.abs())
         .reduce((a, b) => a > b ? a : b);
     return Container(
-      margin: const EdgeInsets.only(top: 2),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(top: 2),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: NivaraColors.bg,
         borderRadius: BorderRadius.circular(12),
@@ -355,20 +402,20 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Why this score — exact Shapley (on-device)',
+          Text('Why this score — exact Shapley (on-device)',
               style: TextStyle(
                   color: NivaraColors.textHi,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700)),
           Text(
             'baseline soldier on this device scores ${_referenceScore.toStringAsFixed(0)}',
-            style: const TextStyle(color: NivaraColors.textLow, fontSize: 10.5),
+            style: TextStyle(color: NivaraColors.textLow, fontSize: 10.5),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           ..._contributions.map((c) {
             final color = c.isRisk ? NivaraColors.danger : NivaraColors.good;
             return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: EdgeInsets.only(bottom: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -376,7 +423,7 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                     children: [
                       Expanded(
                         child: Text(c.label,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 color: NivaraColors.textMid, fontSize: 12)),
                       ),
                       Text('${c.signedPoints} pts',
@@ -405,7 +452,7 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                               : Container()),
                           SizedBox(width: half, child: c.isRisk
                               ? Align(alignment: Alignment.centerLeft, child: Container(
-                                  width: barW, decoration: const BoxDecoration(
+                                  width: barW, decoration: BoxDecoration(
                                       color: NivaraColors.danger,
                                       borderRadius: BorderRadius.horizontal(
                                           right: Radius.circular(3)))))
@@ -434,7 +481,7 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
     required ValueChanged<double> onChanged,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
+      padding: EdgeInsets.only(bottom: 2),
       child: Row(
         children: [
           Container(
@@ -460,7 +507,7 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
             width: 86,
             child: Text(valueText,
                 textAlign: TextAlign.right,
-                style: const TextStyle(
+                style: TextStyle(
                     color: NivaraColors.textHi,
                     fontSize: 13,
                     fontWeight: FontWeight.w700)),
@@ -481,20 +528,20 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 6),
+      padding: EdgeInsets.only(top: 10, bottom: 6),
       child: Row(
         children: [
           Icon(icon, size: 15, color: NivaraColors.accent),
-          const SizedBox(width: 7),
+          SizedBox(width: 7),
           Text(title,
-              style: const TextStyle(
+              style: TextStyle(
                   color: NivaraColors.textHi,
                   fontSize: 14,
                   fontWeight: FontWeight.w700)),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Expanded(
             child: Text(hint,
-                style: const TextStyle(color: NivaraColors.textLow, fontSize: 11)),
+                style: TextStyle(color: NivaraColors.textLow, fontSize: 11)),
           ),
         ],
       ),

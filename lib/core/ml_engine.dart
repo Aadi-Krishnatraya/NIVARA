@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -55,6 +56,12 @@ class MLEngine {
 
   static const String _modelAsset = 'assets/models/stress_model.tflite';
 
+  /// Serializes model access. The TFLite IsolateInterpreter SILENTLY DROPS a
+  /// run issued while another is still in flight (its `_wait()` sees the
+  /// `loading` state and returns immediately with stale output), so every
+  /// inference — and every load — is queued behind this future-chain.
+  Future<void>? _inferenceLock;
+
   IsolateInterpreter? _interpreter;
   List<int>? _inputShape;
   List<int>? _outputShape;
@@ -86,52 +93,81 @@ class MLEngine {
 
   bool get isReady => _interpreter != null;
 
+  /// Runs [job] after every previously queued job completes.
+  Future<T> _serialized<T>(Future<T> Function() job) {
+    final prev = _inferenceLock ?? Future<void>.value();
+    final completer = Completer<void>();
+    _inferenceLock = completer.future;
+    return prev.then((_) => job()).whenComplete(completer.complete);
+  }
+
   Future<void> load() async {
     if (_interpreter != null) return;
+    await _serialized(() async {
+      // Double-check: another caller may have finished loading while this
+      // job waited in the queue.
+      if (_interpreter != null) return;
 
-    final options = InterpreterOptions()..threads = 2;
-    Interpreter interpreter;
-    try {
-      interpreter = await Interpreter.fromAsset(_modelAsset, options: options);
-    } on Error {
-      // Emulator/desktop fallback path if asset loading is unavailable.
-      final raw = await rootBundle.load(_modelAsset);
-      interpreter = Interpreter.fromBuffer(raw.buffer.asUint8List(), options: options);
-    }
-
-    interpreter.allocateTensors();
-    _inputShape = interpreter.getInputTensor(0).shape;
-    _outputShape = interpreter.getOutputTensor(0).shape;
-
-    final inParams = interpreter.getInputTensor(0).params;
-    final outParams = interpreter.getOutputTensor(0).params;
-    _inScale = inParams.scale;
-    _inZeroPoint = inParams.zeroPoint;
-    _outScale = outParams.scale;
-    _outZeroPoint = outParams.zeroPoint;
-
-    // Shapley reference soldier from the training pipeline's metadata.
-    try {
-      final metaRaw = await rootBundle.loadString('assets/models/model_meta.json');
-      final meta = jsonDecode(metaRaw) as Map<String, dynamic>;
-      final explain = meta['explainability'] as Map<String, dynamic>?;
-      final ref = (explain?['reference_point'] as List?)
-          ?.map((e) => (e as num).toDouble())
-          .toList();
-      if (ref != null && ref.length == _inputShape!.last) {
-        _referencePoint = ref;
+      final options = InterpreterOptions()..threads = 2;
+      Interpreter interpreter;
+      try {
+        interpreter = await Interpreter.fromAsset(_modelAsset, options: options);
+      } catch (_) {
+        // Emulator/desktop fallback path if asset loading is unavailable.
+        final raw = await rootBundle.load(_modelAsset);
+        interpreter = Interpreter.fromBuffer(raw.buffer.asUint8List(), options: options);
       }
-    } catch (_) {
-      // Metadata unavailable — Shapley features degrade gracefully below.
-    }
-    _referencePoint ??= List<double>.filled(_inputShape!.last, 0);
 
-    // Hand ownership to a background isolate for non-blocking inference.
-    _interpreter = await IsolateInterpreter.create(address: interpreter.address);
+      interpreter.allocateTensors();
+      final inShape = interpreter.getInputTensor(0).shape;
+      final outShape = interpreter.getOutputTensor(0).shape;
 
-    // Measure the deployed (quantized) model's own baseline so Shapley sums
-    // match what the UI displays — the float-model baseline differs slightly.
-    _referenceScore = await predict(_referencePoint!);
+      // Fail loudly on an unexpected graph instead of silently mis-scaling
+      // features: the asset must be the 6-feature stress model.
+      if (inShape.length != 2 || inShape.last != kStressFeatureNames.length) {
+        throw StateError(
+          'Unexpected stress-model input shape $inShape — expected '
+          '[batch, ${kStressFeatureNames.length}]. Rebuild the model asset.',
+        );
+      }
+
+      _inputShape = inShape;
+      _outputShape = outShape;
+
+      final inParams = interpreter.getInputTensor(0).params;
+      final outParams = interpreter.getOutputTensor(0).params;
+      _inScale = inParams.scale;
+      _inZeroPoint = inParams.zeroPoint;
+      _outScale = outParams.scale;
+      _outZeroPoint = outParams.zeroPoint;
+
+      // Shapley reference soldier from the training pipeline's metadata.
+      try {
+        final metaRaw = await rootBundle.loadString('assets/models/model_meta.json');
+        final meta = jsonDecode(metaRaw) as Map<String, dynamic>;
+        final explain = meta['explainability'] as Map<String, dynamic>?;
+        final ref = (explain?['reference_point'] as List?)
+            ?.map((e) => (e as num).toDouble())
+            .toList();
+        if (ref != null && ref.length == _inputShape!.last) {
+          _referencePoint = ref;
+        }
+      } catch (_) {
+        // Metadata unavailable — Shapley degrades to a zero baseline:
+        // attributions stay additive but lose their calibrated meaning.
+      }
+      _referencePoint ??= List<double>.filled(_inputShape!.last, 0);
+
+      // Hand ownership to a background isolate for non-blocking inference.
+      // Bounded so a wedged isolate surfaces as a boot error, not a hang.
+      _interpreter = await IsolateInterpreter.create(address: interpreter.address)
+          .timeout(const Duration(seconds: 15));
+
+      // Measure the deployed (quantized) model's own baseline so Shapley sums
+      // match what the UI displays — the float-model baseline differs slightly.
+      // Direct _runBatch call: the lock is already held by load() itself.
+      _referenceScore = (await _runBatch([_referencePoint!])).single;
+    });
   }
 
   /// Runs one forward pass and returns the dequantized stress index (0-100).
@@ -148,12 +184,21 @@ class MLEngine {
   /// graph takes a dynamic batch dimension, which is what makes on-device
   /// exact Shapley feasible: all 64 coalitions run as ONE inference.
   Future<List<double>> predictBatch(List<List<double>> batch) async {
-    final interpreter = _interpreter;
-    if (interpreter == null) {
+    if (_interpreter == null) {
       throw StateError('MLEngine.load() must complete before predict()');
     }
     if (batch.isEmpty) return const [];
+    // The interpreter must never see overlapping runs (it silently drops
+    // one) — queue every batch behind the inference lock.
+    return _serialized(() => _runBatch(batch));
+  }
+
+  /// One quantize → run → dequantize pass. Must be called under
+  /// [_serialized] (or from load(), which already holds the lock).
+  Future<List<double>> _runBatch(List<List<double>> batch) async {
+    final interpreter = _interpreter!;
     final width = _inputShape!.last;
+    final outWidth = _outputShape!.last;
 
     final input = List.generate(
       batch.length,
@@ -165,11 +210,12 @@ class MLEngine {
     );
     final output = List.generate(
       batch.length,
-      (_) => List.filled(_outputShape!.last, 0, growable: false),
+      (_) => List.filled(outWidth, 0, growable: false),
       growable: false,
     );
 
     await interpreter.run(input, output);
+    assert(outWidth == 1, 'dequantization assumes a single scalar output');
 
     return [
       for (final row in output)
