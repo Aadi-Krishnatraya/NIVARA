@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nivara_app/core/auth_service.dart';
+import 'package:nivara_app/core/database_helper.dart';
 import 'package:nivara_app/core/ml_engine.dart';
 import 'package:nivara_app/core/shapley.dart';
 import 'package:nivara_app/core/ui_theme.dart';
 import 'package:nivara_app/features/commander/unit_condition.dart';
+import 'package:nivara_app/features/commander/unit_forecast.dart';
 import 'package:nivara_app/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -255,6 +257,121 @@ void main() {
       expect(applyUnitFilters(units, order: UnitSortOrder.nameAsc).first.unitId,
           'ALPHA');
       expect(applyUnitFilters(units).first.unitId, 'ALPHA');
+    });
+  });
+
+  group('stable DP releases (no jitter across polls)', () {
+    test('same raw average returns the identical release every time', () {
+      final db = DatabaseHelper.instance;
+      final first = db.dpAverageStable('TEST_UNIT', 42.0);
+      for (var i = 0; i < 50; i++) {
+        expect(db.dpAverageStable('TEST_UNIT', 42.0), first);
+      }
+      // A genuinely different raw value gets its own release.
+      final changed = db.dpAverageStable('TEST_UNIT', 55.0);
+      expect(changed, isNot(equals(first)));
+    });
+
+    test('same raw share is stable, and scopes never share a draw', () {
+      final db = DatabaseHelper.instance;
+      final a1 = db.dpShareStable('ALPHA', 30.0);
+      final b1 = db.dpShareStable('BRAVO', 30.0);
+      expect(db.dpShareStable('ALPHA', 30.0), a1);
+      expect(db.dpShareStable('BRAVO', 30.0), b1);
+      // Two units with identical raw shares must not display the same
+      // number — that would betray their equality.
+      expect(a1, isNot(equals(b1)));
+    });
+  });
+
+  group('unit 72h early-warning forecast (unit aggregates only)', () {
+    List<DailyPoint> rising(List<double> avgs) => [
+          for (var i = 0; i < avgs.length; i++)
+            DailyPoint(
+                day: DateTime(2026, 9, 1 + i), avg: avgs[i], logs: 5),
+        ];
+
+    test('rising trajectory crosses HIGH and lands in an imminent bucket', () {
+      final f = computeUnitForecast(
+        series: rising([40, 45, 50, 55, 60, 64]), // ≈ +4.8/day, anchor 62 DP
+        anchorScore: 62,
+      );
+      expect(f.slopePerDay, greaterThan(0));
+      expect(f.daysToCrossing, isNotNull);
+      expect(f.daysToCrossing!, lessThanOrEqualTo(3));
+      expect(f.tier, ForecastTier.imminent);
+      expect(f.projected72h, greaterThan(67));
+      expect(f.bucketLabel, isNotEmpty);
+    });
+
+    test('watch tier when the crossing lands inside a week but outside 72h', () {
+      final f = computeUnitForecast(
+        series: rising([40, 42, 44, 46, 48]), // +2/day
+        anchorScore: 55,
+      );
+      expect(f.tier, ForecastTier.watch);
+      expect(f.daysToCrossing!, inExclusiveRange(3, 7));
+    });
+
+    test('falling trajectory never crosses and reports improving', () {
+      final f = computeUnitForecast(
+        series: rising([70, 64, 58, 55, 50]),
+        anchorScore: 55,
+      );
+      expect(f.tier, ForecastTier.improving);
+      expect(f.daysToCrossing, isNull);
+    });
+
+    test('stable flat trend stays below HIGH for the horizon', () {
+      final f = computeUnitForecast(
+        series: rising([50, 50, 50, 50, 50]),
+        anchorScore: 50,
+      );
+      expect(f.tier, ForecastTier.stable);
+      expect(f.projected72h, lessThan(67));
+    });
+
+    test('already-high anchor short-circuits the projection', () {
+      final f = computeUnitForecast(
+        series: rising([70, 71]),
+        anchorScore: 70,
+      );
+      expect(f.tier, ForecastTier.alreadyHigh);
+    });
+
+    test('single day of history is reported as insufficient', () {
+      final f = computeUnitForecast(
+        series: [DailyPoint(day: DateTime(2026, 9, 1), avg: 50, logs: 5)],
+        anchorScore: 50,
+      );
+      expect(f.tier, ForecastTier.insufficient);
+      expect(f.showsRisk, isFalse);
+    });
+
+    test('log-count weighting changes the fit when days disagree', () {
+      // A dip on the heavily-logged day (100 logs) should flatten the fit:
+      // days with more check-ins describe the trajectory more reliably.
+      List<DailyPoint> series({required int dipLogs}) => [
+            DailyPoint(day: DateTime(2026, 9, 1), avg: 30, logs: 1),
+            DailyPoint(day: DateTime(2026, 9, 2), avg: 50, logs: 1),
+            DailyPoint(day: DateTime(2026, 9, 3), avg: 40, logs: dipLogs),
+          ];
+      final weighted = computeUnitForecast(
+          series: series(dipLogs: 100), anchorScore: 40);
+      final unweighted = computeUnitForecast(
+          series: series(dipLogs: 1), anchorScore: 40);
+      // Unweighted fit over (30, 50, 40) is +5/day; weighting the dip day
+      // flattens it. They must differ.
+      expect(unweighted.slopePerDay, 5.0);
+      expect(weighted.slopePerDay, isNot(equals(unweighted.slopePerDay)));
+      expect(weighted.slopePerDay, lessThan(unweighted.slopePerDay));
+    });
+
+    test('coarse buckets never leak a precise crossing time', () {
+      expect(crossingBucketLabel(0.4), '1 day');
+      expect(crossingBucketLabel(2.5), '2–3 days');
+      expect(crossingBucketLabel(5), '4–6 days');
+      expect(crossingBucketLabel(11), '1–2 weeks');
     });
   });
 

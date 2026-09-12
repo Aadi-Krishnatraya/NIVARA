@@ -10,8 +10,10 @@ import 'package:nivara_app/core/user_session.dart';
 import '../auth/login_screen.dart';
 import 'audit_viewer_screen.dart';
 import 'commander_widgets.dart';
+import 'forecast_widgets.dart';
 import 'unit_condition.dart';
 import 'unit_details_screen.dart';
+import 'unit_forecast.dart';
 
 /// Command Action Portal (PRD §1/§3.3). Aggregates only: zero access to
 /// names, Service IDs, or individual scores is possible from this screen.
@@ -57,6 +59,17 @@ class _CommanderScreenState extends State<CommanderScreen> {
   final Set<UnitCondition> _condFilter = {};
   UnitSortOrder _order = UnitSortOrder.worstFirst;
   Timer? _refreshTimer;
+
+  // Early-warning forecasts, keyed by unit id. Unit aggregates only —
+  // per-soldier trajectories are never computed anywhere in this app.
+  Map<String, UnitForecast> _forecasts = const {};
+
+  // Stable forecasts: the forecast's Laplace-noised slope must be a ONE-TIME
+  // release per data version, not re-rolled on every 30s poll — otherwise
+  // chips jitter ("HIGH in ~2–3 days" flipping to "stable") and averaging
+  // observed releases could cancel the noise. Keyed by data version.
+  final Map<String, String> _forecastKeyByUnit = {};
+  final Map<String, UnitForecast> _forecastByKey = {};
 
   @override
   void initState() {
@@ -123,8 +136,10 @@ class _CommanderScreenState extends State<CommanderScreen> {
         _ownSuppressed = false;
         _contributors = contributors;
         _totalLogs = (metrics['total'] as int?) ?? 0;
-        // Laplace-differentially-private average (PRD §5.2).
-        _avgStress = db.differentiallyPrivateAverage(
+        // Laplace-differentially-private average (PRD §5.2), released once
+        // per data version — polls never re-roll the displayed number.
+        _avgStress = db.dpAverageStable(
+          unitId,
           ((metrics['avg_stress'] as num?) ?? 0).toDouble(),
         );
         _trend = trend;
@@ -154,6 +169,7 @@ class _CommanderScreenState extends State<CommanderScreen> {
     final visible = <UnitSummary>[];
     final suppressed = <UnitSummary>[];
     final seen = <String>{};
+    final forecasts = <String, UnitForecast>{};
 
     for (final r in overview) {
       final unit = (r['unit'] as String).toUpperCase();
@@ -167,12 +183,41 @@ class _CommanderScreenState extends State<CommanderScreen> {
         unitId: unit,
         contributors: contributors,
         totalLogs: totalLogs,
-        stressAvg: totalLogs == 0 ? 0 : db.differentiallyPrivateAverage(rawAvg),
+        stressAvg: totalLogs == 0
+            ? 0
+            : db.dpAverageStable(unit, rawAvg), // one release per data version
         privacySuppressed: isSuppressed,
         lastCheckIn: lastTs,
         todayContributors: todayByUnit[unit] ?? 0,
       );
       isSuppressed ? suppressed.add(summary) : visible.add(summary);
+
+      if (!isSuppressed) {
+        // Early warning per unit: DP trend over the daily aggregate series.
+        // The noisy slope is a one-time release per data version — see the
+        // cache fields — so silent polls never re-roll it.
+        final series = await db.getUnitDailySeries(unit);
+        final version =
+            '$unit|${summary.stressAvg.toStringAsFixed(2)}|$totalLogs|${series.length}';
+        final cachedKey = _forecastKeyByUnit[unit];
+        if (cachedKey != null && cachedKey == version) {
+          forecasts[unit] = _forecastByKey[cachedKey]!;
+        } else {
+          final f = computeUnitForecast(
+            series: series,
+            anchorScore: summary.stressAvg,
+            noiseScale: 0.15,
+            noise: db.laplaceNoisePublic,
+          );
+          if (_forecastByKey.length > 300) {
+            _forecastByKey.clear();
+            _forecastKeyByUnit.clear();
+          }
+          _forecastByKey[version] = f;
+          _forecastKeyByUnit[unit] = version;
+          forecasts[unit] = f;
+        }
+      }
     }
 
     // Units with registered personnel but no check-ins yet still belong on
@@ -210,6 +255,7 @@ class _CommanderScreenState extends State<CommanderScreen> {
     suppressed.sort((a, b) => a.unitId.compareTo(b.unitId));
     _units = visible;
     _suppressedUnits = suppressed;
+    _forecasts = forecasts;
   }
 
   List<UnitSummary> get _filteredUnits => applyUnitFilters(
@@ -218,6 +264,12 @@ class _CommanderScreenState extends State<CommanderScreen> {
         conditionFilter: _condFilter,
         order: _order,
       );
+
+  /// Early-warning forecast for the commander's own unit.
+  UnitForecast? get _ownForecast {
+    final f = _forecasts[widget.session.unitId.toUpperCase()];
+    return f != null && f.tier != ForecastTier.insufficient ? f : null;
+  }
 
   String get _trendDelta {
     if (_trend.length < 2) return '';
@@ -418,6 +470,7 @@ class _CommanderScreenState extends State<CommanderScreen> {
                             moderateCount: _moderateCount,
                             footnote:
                                 _trendDelta.isEmpty ? null : _trendDelta,
+                            dpScope: widget.session.unitId,
                           ),
                           const SizedBox(height: 12),
                           Row(
@@ -446,6 +499,10 @@ class _CommanderScreenState extends State<CommanderScreen> {
                             ],
                           ),
                           const SizedBox(height: 20),
+                          if (_ownForecast != null) ...[
+                            ForecastCard(forecast: _ownForecast!),
+                            const SizedBox(height: 12),
+                          ],
                           CommanderTrendCard(
                               trend: _trend, stressAvg: _avgStress),
                           const SizedBox(height: 20),
@@ -835,6 +892,10 @@ class _CommanderScreenState extends State<CommanderScreen> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 6),
+                      if (_forecasts[u.unitId] != null &&
+                          _forecasts[u.unitId]!.tier != ForecastTier.insufficient)
+                        ForecastChip(forecast: _forecasts[u.unitId]!),
                     ],
                   ),
                 ),

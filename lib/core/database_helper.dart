@@ -9,6 +9,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'auth_service.dart';
 import 'ml_engine.dart';
 import 'user_session.dart';
+import '../features/commander/unit_forecast.dart';
 
 
 /// AES-256 encrypted local vault (SQLCipher). The DB passphrase is a
@@ -452,6 +453,28 @@ class DatabaseHelper {
     return {for (final r in rows) (r['unit_id'] as String).toUpperCase()};
   }
 
+  /// A unit's daily aggregate series (day, avg stress, log count) for the
+  /// early-warning forecast. Unit aggregates only — no identity columns.
+  Future<List<DailyPoint>> getUnitDailySeries(String unitId, {int days = 14}) async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT date(timestamp) AS day,
+             AVG(stress_score) AS avg_stress,
+             COUNT(*) AS logs
+      FROM check_ins
+      WHERE unit_id = ? AND date(timestamp) >= date('now', ?)
+      GROUP BY day ORDER BY day ASC
+    ''', [unitId, '-${days - 1} days']);
+    return [
+      for (final r in rows)
+        DailyPoint(
+          day: DateTime.parse(r['day'] as String),
+          avg: ((r['avg_stress'] as num?) ?? 0).toDouble(),
+          logs: (r['logs'] as int?) ?? 1,
+        ),
+    ];
+  }
+
   /// Load a single unit's full aggregate bundle for the details view.
   /// Returns null when the unit is below the privacy threshold — the
   /// caller then renders the blocked state instead of any aggregate.
@@ -537,6 +560,47 @@ class DatabaseHelper {
   /// percentage-style displays carry the same DP protection as averages.
   double laplaceNoisePublic({double scale = 2.0}) =>
       laplaceNoise(scale: scale, rng: _random);
+
+  // -----------------------------------------------------------------------
+  // Stable DP releases (one noisy value per data version, not per render)
+  // -----------------------------------------------------------------------
+  // Redrawing Laplace noise on every poll/render is both a UX bug (numbers
+  // jitter, tiers flip, sort shuffles) AND a privacy bug: averaging many
+  // releases cancels the noise and recovers the raw value. A proper DP
+  // release is drawn ONCE per (unit, underlying data) and reused until the
+  // data changes. These helpers key the cache on the raw inputs, so:
+  //  * same raw data  -> identical displayed value forever (stable UI),
+  //  * new check-ins  -> new raw key -> a fresh, legitimate release.
+  final Map<String, double> _dpStableCache = {};
+
+  /// Memory hygiene: far beyond any realistic session's distinct releases.
+  static const int _dpStableCacheCap = 500;
+
+  void _trimDpCache() {
+    if (_dpStableCache.length >= _dpStableCacheCap) _dpStableCache.clear();
+  }
+
+  /// Differentially-private unit average with a stable release per
+  /// (unit, raw average). Use for EVERY displayed unit average.
+  double dpAverageStable(String unitId, double rawAverage) {
+    final key = 'avg:$unitId:${rawAverage.toStringAsFixed(2)}';
+    _trimDpCache();
+    return _dpStableCache.putIfAbsent(
+      key,
+      () => differentiallyPrivateAverage(rawAverage),
+    );
+  }
+
+  /// Differentially-private percentage share with a stable release per
+  /// (scope, raw percentage). Use for band-share style displays.
+  double dpShareStable(String scope, double rawPct) {
+    final key = 'share:$scope:${rawPct.toStringAsFixed(2)}';
+    _trimDpCache();
+    return _dpStableCache.putIfAbsent(
+      key,
+      () => (rawPct + laplaceNoisePublic(scale: 2.0)).clamp(0.0, 100.0).toDouble(),
+    );
+  }
 
   // -------------------------------------------------------------------------
   // Immutable audit trail (PRD §3.3) — append-only, no update/delete path

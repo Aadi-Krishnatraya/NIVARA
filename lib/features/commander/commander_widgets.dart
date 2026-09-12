@@ -99,6 +99,11 @@ class CommanderOverviewCard extends StatelessWidget {
   final int moderateCount;
   final String? footnote;
 
+  /// Cache scope for stable DP share releases — pass the unit id so two
+  /// units never share a noise draw (equal raw shares would otherwise be
+  /// betrayed by identical displayed values).
+  final String dpScope;
+
   const CommanderOverviewCard({
     super.key,
     required this.stressAvg,
@@ -107,14 +112,15 @@ class CommanderOverviewCard extends StatelessWidget {
     required this.highCount,
     required this.moderateCount,
     this.footnote,
+    this.dpScope = 'unit',
   });
 
   double _sharePct(int count) {
     if (totalLogs == 0) return 0;
     final raw = count / totalLogs * 100;
-    // Laplace noise on displayed shares — same DP treatment as the average.
-    final noisy = raw + DatabaseHelper.instance.laplaceNoisePublic(scale: 2.0);
-    return noisy.clamp(0.0, 100.0);
+    // Stable DP release: one draw per (unit, raw share), cached until the
+    // underlying data changes — repeated rebuilds never re-roll the noise.
+    return DatabaseHelper.instance.dpShareStable(dpScope, raw);
   }
 
   @override

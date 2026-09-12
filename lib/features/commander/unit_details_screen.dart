@@ -6,7 +6,9 @@ import 'package:nivara_app/core/shapley.dart';
 import 'package:nivara_app/core/ui_theme.dart';
 import 'package:nivara_app/core/user_session.dart';
 import 'commander_widgets.dart';
+import 'forecast_widgets.dart';
 import 'unit_condition.dart';
+import 'unit_forecast.dart';
 
 /// Unit Details (Units Under Command → select unit). Focused aggregate view
 /// for one unit plus the commander controls. Same privacy rules as the
@@ -32,6 +34,10 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
   bool _privacyBlocked = false;
   int _suppressedContributors = 0;
 
+  /// Data version of the last load — when it matches, we keep the previous
+  /// DP releases (average + forecast) so re-polls never re-roll noise.
+  String? _releaseKey;
+
   double _avgStress = 0.0;
   int _totalLogs = 0;
   int _contributors = 0;
@@ -43,6 +49,7 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
   List<Map<String, Object?>> _trend = [];
   Map<String, Object?>? _drivers;
   Map<String, double> _meanAttributions = const {};
+  UnitForecast? _forecast;
 
   @override
   void initState() {
@@ -76,6 +83,25 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
 
     final metrics = bundle['metrics']! as Map<String, Object?>;
     final lastTs = await db.getUnitLastCheckIn(widget.unitId);
+    // Stable DP releases: the average and the forecast's noisy slope are
+    // one-time draws per data version — re-entering this screen or polling
+    // must never re-roll them.
+    final rawAvg = ((metrics['avg_stress'] as num?) ?? 0).toDouble();
+    final totalLogs = (metrics['total'] as int?) ?? 0;
+    final series = await db.getUnitDailySeries(widget.unitId);
+    final releaseKey =
+        '${widget.unitId}|${rawAvg.toStringAsFixed(2)}|$totalLogs|${series.length}';
+    UnitForecast? forecast;
+    if (_releaseKey == releaseKey && _forecast != null) {
+      forecast = _forecast; // reuse: same data → same displayed projection
+    } else {
+      forecast = computeUnitForecast(
+        series: series,
+        anchorScore: db.dpAverageStable(widget.unitId, rawAvg),
+        noiseScale: 0.15,
+        noise: db.laplaceNoisePublic,
+      );
+    }
     await db.logAudit(
       actorId: widget.session.userId,
       action: 'UNIT_VIEW',
@@ -87,10 +113,10 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
     setState(() {
       _privacyBlocked = false;
       _contributors = bundle['contributors'] as int;
-      _totalLogs = (metrics['total'] as int?) ?? 0;
-      _avgStress = db.differentiallyPrivateAverage(
-        ((metrics['avg_stress'] as num?) ?? 0).toDouble(),
-      );
+      _totalLogs = totalLogs;
+      _avgStress = db.dpAverageStable(widget.unitId, rawAvg);
+      _releaseKey = releaseKey;
+      _forecast = forecast;
       _trend = bundle['trend']! as List<Map<String, Object?>>;
       _drivers = bundle['drivers'] as Map<String, Object?>;
       _meanAttributions = bundle['attributions']! as Map<String, double>;
@@ -367,6 +393,11 @@ class _UnitDetailsScreenState extends State<UnitDetailsScreen> {
                           ],
                         ),
                         const SizedBox(height: 20),
+                        if (_forecast != null &&
+                            _forecast!.tier != ForecastTier.insufficient) ...[
+                          ForecastCard(forecast: _forecast!),
+                          const SizedBox(height: 12),
+                        ],
                         CommanderTrendCard(
                             trend: _trend, stressAvg: _avgStress),
                         const SizedBox(height: 20),
