@@ -18,6 +18,12 @@ dependencies:
   shared_preferences: ^2.3.2
   url_launcher: ^6.3.1
   cupertino_icons: ^1.0.8
+  # x402 / Algorand — on-device x402 client (Wellness Exchange)
+  http: ^1.2.2
+  pointycastle: ^3.9.1
+  convert: ^3.1.2
+  camera: ^0.12.1
+  google_mlkit_face_detection: ^0.15.1
 
 dev_dependencies:
   flutter_test:

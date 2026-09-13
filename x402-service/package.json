@@ -1,0 +1,47 @@
+{
+  "name": "nivara-x402-service",
+  "version": "1.0.0",
+  "description": "NIVARA Wellness Intelligence API — payment-protected endpoints using the x402 protocol on Algorand (AVM)",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "start": "tsx index.ts",
+    "dev": "tsx watch index.ts",
+    "client": "tsx client/client.ts",
+    "client:stress": "tsx client/client.ts stress",
+    "client:unit": "tsx client/client.ts unit",
+    "client:triple": "tsx client/client.ts triple",
+    "verify": "tsx scripts/verify_settlement.ts",
+    "demo:sync": "tsx scripts/sync_demo.ts",
+    "setup": "tsx scripts/setup.ts",
+    "optin": "tsx scripts/optin.ts",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "keywords": [
+    "x402",
+    "algorand",
+    "avm",
+    "usdc",
+    "micropayments",
+    "nivara"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@algorandfoundation/algokit-utils": "^10.0.0-alpha.39",
+    "@hono/node-server": "^1.19.17",
+    "@x402-avm/avm": "^2.6.1",
+    "@x402-avm/core": "^2.6.1",
+    "@x402-avm/extensions": "^2.6.1",
+    "@x402-avm/fetch": "^2.6.1",
+    "@x402-avm/hono": "^2.6.1",
+    "dotenv": "^17.2.2",
+    "hono": "^4.13.7"
+  }
+}

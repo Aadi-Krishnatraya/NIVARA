@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowImportingTsExtensions": false,
+    "outDir": "dist",
+    "rootDir": "."
+  },
+  "include": ["index.ts", "config/**/*.ts", "handlers/**/*.ts", "client/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"]
+}

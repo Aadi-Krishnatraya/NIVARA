@@ -5,6 +5,8 @@ import 'package:nivara_app/core/ml_engine.dart';
 import 'package:nivara_app/core/shapley.dart';
 import 'package:nivara_app/core/ui_theme.dart';
 import 'package:nivara_app/core/user_session.dart';
+import 'face_mood_capture_sheet.dart';
+import 'face_mood_model.dart';
 
 /// Ultra-low friction daily check-in (PRD §3.1).
 ///
@@ -43,6 +45,8 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
   bool _submitting = false;
   bool _engineReady = false;
   String? _engineError;
+  MoodEstimate? _faceMoodSuggestion;
+  bool _faceMoodApplied = false;
 
   @override
   void initState() {
@@ -75,6 +79,20 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
       StressLevel.moderate => NivaraColors.warn,
       StressLevel.low => NivaraColors.good,
     };
+  }
+
+  /// Opens the on-device face-mood assist. On accept, the suggestion
+  /// pre-fills the mood slider (user can still adjust); every slider move
+  /// clears the applied flag so the chip stays honest.
+  Future<void> _openFaceMood() async {
+    final estimate = await FaceMoodCaptureSheet.show(context);
+    if (estimate == null || !mounted) return;
+    setState(() {
+      _faceMoodSuggestion = estimate;
+      _mood = estimate.suggestedMood;
+      _faceMoodApplied = true;
+      _evaluatedScore = null;
+    });
   }
 
   Future<void> _runEvaluation() async {
@@ -366,7 +384,16 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                   ],
                   lowHint: 'very low',
                   highHint: 'excellent',
-                  onChanged: (v) => setState(() { _mood = v; _evaluatedScore = null; }),
+                  trailing: _faceMoodTrailing(),
+                  onChanged: (v) => setState(() {
+                    _mood = v;
+                    _evaluatedScore = null;
+                    // The chip stays honest: only "applied" while the slider
+                    // still matches the face suggestion.
+                    if (_faceMoodSuggestion != null) {
+                      _faceMoodApplied = v == _faceMoodSuggestion!.suggestedMood;
+                    }
+                  }),
                 ),
                 _slider(
                   icon: Icons.bedtime_outlined,
@@ -675,6 +702,60 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
     );
   }
 
+  /// Compact trailing accessory for the mood slider: the camera trigger plus,
+  /// once a suggestion exists, a confidence chip (tap for the rationale).
+  Widget _faceMoodTrailing() {
+    final suggestion = _faceMoodSuggestion;
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      if (suggestion != null) ...[
+        GestureDetector(
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(suggestion.rationale),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          },
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: (_faceMoodApplied ? NivaraColors.accent : NivaraColors.textLow)
+                  .withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.face_retouching_natural,
+                  size: 12,
+                  color: _faceMoodApplied ? NivaraColors.accent : NivaraColors.textLow),
+              SizedBox(width: 3),
+              Text(
+                '${suggestion.suggestedMood.toStringAsFixed(1)} · ${(suggestion.confidence * 100).round()}%',
+                style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: _faceMoodApplied ? NivaraColors.accent : NivaraColors.textLow),
+              ),
+            ]),
+          ),
+        ),
+        SizedBox(width: 6),
+      ],
+      SizedBox(
+        width: 32,
+        height: 32,
+        child: IconButton(
+          padding: EdgeInsets.zero,
+          iconSize: 18,
+          tooltip: 'Face mood assist (on-device)',
+          icon: Icon(Icons.photo_camera_outlined, color: NivaraColors.accent),
+          onPressed: _openFaceMood,
+        ),
+      ),
+    ]);
+  }
+
   Widget _slider({
     required IconData icon,
     required String label,
@@ -689,6 +770,7 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
     double Function(double)? stageT,
     String? lowHint,
     String? highHint,
+    Widget? trailing,
   }) {
     final t = stageT?.call(value) ?? ((value - min) / (max - min)).clamp(0.0, 1.0);
     return Padding(
@@ -719,6 +801,10 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> {
                       color: NivaraColors.textHi,
                       fontSize: 13,
                       fontWeight: FontWeight.w700)),
+              if (trailing != null) ...[
+                SizedBox(width: 6),
+                trailing,
+              ],
             ],
           ),
           Row(
